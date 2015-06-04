@@ -1,17 +1,22 @@
 {
   "name": "pg-libpq",
   "description": "Native, asynchronous, non-blocking interface to PostgreSQL",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "author": "Geoff Jacobsen <geoffjacobsen@gmail.com>",
   "license": "MIT",
   "main": "lib/pg-libpq",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/jacott/node-pg-libpq.git"
+  },
   "gypfile": true,
   "dependencies": {
-    "nan": "*",
-    "bindings": "1.2.1"
+    "bindings": "^1.2.1",
+    "nan": "^1.8.4",
+    "pg-types": "^1.7.0"
   },
   "scripts": {
-    "test": "node-gyp build && TERM=dumb node_modules/.bin/mocha -C -R dot"
+    "test": "tools/run-tests"
   },
   "devDependencies": {
     "mocha": "^2.2.5"
@@ -22,5 +27,4 @@
     "libpq",
     "database"
   ]
-
 }

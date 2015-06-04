@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+
+ulimit -c unlimited
+if [ -e "build/Makefile" ];then
+    make -C build -s
+else
+    node-gyp rebuild
+fi
+exec node_modules/.bin/mocha -C -R dot "$@"

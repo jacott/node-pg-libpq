@@ -8,6 +8,7 @@
       'variables': {
         'pgconfig': 'pg_config'
       },
+      "cflags": ["-g"],
       "include_dirs": [
         '<!@(<(pgconfig) --includedir)',
         "<!(node -e \"require('nan')\")"
