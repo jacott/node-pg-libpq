@@ -9,6 +9,7 @@ describe('connecting', function() {
       pg.exec("SELECT 1", function (err, res) {
         assert.ifError(err);
         assert.equal(res[0]['?column?'], 1);
+        pg.finish();
         done();
       });
     });

@@ -14,6 +14,7 @@ class Conn : public node::ObjectWrap {
  public:
   static NAN_METHOD(create);
   static NAN_METHOD(connectDB);
+  static NAN_METHOD(finish);
   static NAN_METHOD(exec);
   static NAN_METHOD(setTypeConverter);
 

@@ -2,12 +2,12 @@
 
 Native, asynchronous, non-blocking interface to PostgreSQL through
 [libpq](http://www.postgresql.org/docs/9.4/static/libpq.html). This module uses node's worker
-threads to make this package asynchronous instead of libpq's async routines as they stil sometimes
+threads to make this package asynchronous instead of libpq's async routines as they still sometimes
 block but also makes the interface much simpler. I also had trouble using
 [node-libpq](https://github.com/brianc/node-libpq) because the asynchronous reading logic somehow
 blocked other node events such as http server listen and Promises.
 
-This library is currently incomplete and onlu implements the features I need. For instance COPY
+This library is currently incomplete and only implements the features I need. For instance COPY
 commands do not work. I will accept PRs though.
 
 ## Install
@@ -55,7 +55,7 @@ Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libp
 $ tools/run-tests
 ```
 
-To run the tests you need a PostgreSQL backend reachable by typing `psql` with no connection parameters in your terminal. The tests expect PostgreSQL to be running on the same machine as the tests.
+To run the tests you need a PostgreSQL back-end reachable by typing `psql` with no connection parameters in your terminal. The tests expect PostgreSQL to be running on the same machine as the tests.
 
 
 ## license

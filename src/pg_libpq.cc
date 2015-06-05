@@ -131,6 +131,17 @@ NAN_METHOD(Conn::connectDB) {
   NanReturnUndefined();
 }
 
+NAN_METHOD(Conn::finish) {
+  NanScope();
+
+  Conn* self = THIS();
+  self->setResult(NULL);
+  PQfinish(self->pq);
+  self->pq = NULL;
+  self->Unref();
+  NanReturnUndefined();
+}
+
 NAN_METHOD(Conn::exec) {
   NanScope();
 
@@ -203,6 +214,7 @@ void InitAll(Handle<Object> exports) {
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   NODE_SET_PROTOTYPE_METHOD(tpl, "connectDB", Conn::connectDB);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "finish", Conn::finish);
   NODE_SET_PROTOTYPE_METHOD(tpl, "exec", Conn::exec);
   NODE_SET_PROTOTYPE_METHOD(tpl, "setTypeConverter", Conn::setTypeConverter);
 
