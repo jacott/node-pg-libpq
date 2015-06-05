@@ -16,7 +16,7 @@ describe('connecting', function() {
   });
 
   it('connects using tcp socket', function (done) {
-    new PG("host=localhost password=rubbish", function (err, res) {
+    new PG("host=localhost password=rubbish", function (err) {
       assert(/password authentication failed/.test(err.message), err.message);
       done();
     });
@@ -36,6 +36,7 @@ describe('connecting', function() {
         assert.ifError(err);
         assert.equal(JSON.stringify(result), JSON.stringify([{x: 2}]));
         assert.equal(--count, 0);
+        pg.finish();
         if (other === 0) done();
       });
     });
@@ -44,6 +45,7 @@ describe('connecting', function() {
       oPg.exec("SELECT 'other' bad bad", function (err, result) {
         --other;
         assert(/syntax/.test(err.message));
+        oPg.finish();
         if (count === 0) done();
       });
     });
