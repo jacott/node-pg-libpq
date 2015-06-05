@@ -54,6 +54,12 @@ Disconnects from the server. pgConn is unusable after this.
 See [libpq -
 Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libpq-exec.html)
 
+##### `pgConn.execParams(command, params, callback)`
+
+params are coverted to strings before passing to libpq. No type information is passed along with the
+paramters; it is left for the PostgreSQL server to derive the type. Arrays a naturally converted to
+json format but calling `pgConn.sqlArray(array)` will convert to array format `{1,2,3}`.
+
 ## testing
 
 ```sh
