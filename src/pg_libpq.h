@@ -6,6 +6,15 @@
 #include <libpq-fe.h>
 #include <pg_config.h>
 
+using v8::FunctionTemplate;
+using v8::Local;
+using v8::Value;
+using v8::Number;
+using v8::Handle;
+using v8::Object;
+using v8::Array;
+using v8::String;
+
 class PQAsync;
 
 #define DEBUG(format, arg) // fprintf(stderr, format, arg)
@@ -16,9 +25,13 @@ class Conn : public node::ObjectWrap {
   static NAN_METHOD(connectDB);
   static NAN_METHOD(finish);
   static NAN_METHOD(exec);
+  static NAN_METHOD(execParams);
   static NAN_METHOD(setTypeConverter);
 
-  static char* NewCString(v8::Handle<v8::Value> val);
+  static char* newCStr(Handle<Value> val);
+  static char** newCStrArray(Handle<Array> params);
+  static void deleteCStrArray(char** array, int length);
+
   void setResult(PGresult* newResult);
   char* getErrorMessage();
 
@@ -66,12 +79,13 @@ class ConnectDB : public PQAsync {
 
 class ExecParams : public PQAsync {
  public:
-  ExecParams(Conn* conn, char* command, char** params, NanCallback* callback);
+  ExecParams(Conn* conn, char* command, int paramsLen, char** params, NanCallback* callback);
   ~ExecParams();
   void Execute();
 
  private:
   char* command;
+  int paramsLen;
   char** params;
 };
 

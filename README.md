@@ -7,12 +7,17 @@ block but also makes the interface much simpler. I also had trouble using
 [node-libpq](https://github.com/brianc/node-libpq) because the asynchronous reading logic somehow
 blocked other node events such as http server listen and Promises.
 
+This library is lower level than [node-postgres](https://github.com/brianc/node-postgres) but higher
+ than [node-libpq](https://github.com/brianc/node-libpq) hence the name node-pg-libpq. It
+ makes use of [node-pg-types](https://github.com/brianc/node-pg-types).
+
 This library is currently incomplete and only implements the features I need. For instance COPY
 commands do not work. I will accept PRs though.
 
 ## Install
 
-You need libpq installed & the `pg_config` program should be in your path.  You also need [node-gyp](https://github.com/TooTallNate/node-gyp) installed.
+You need libpq installed and the `pg_config` program should be in your path.  You also need
+[node-gyp](https://github.com/TooTallNate/node-gyp) installed.
 
 ```sh
 $ npm i node-pg-libpq
@@ -22,10 +27,10 @@ $ npm i node-pg-libpq
 
 ```js
 var Libpq = require('pg-libpq');
-new Libpq(function (err, pg) {
-    pg.exec("Select 'world' as hello", function(err, rows) {
+new Libpq(function (err, pgConn) {
+    pgConn.exec("SELECT 'world' AS hello", function(err, rows) {
        console.log(rows);
-       pg.finish();
+       pgConn.finish();
     });
 });
 ```
@@ -34,15 +39,15 @@ new Libpq(function (err, pg) {
 
 ### connecting
 
-#### `new Libpq([conninfo], function callback(err, pg))`
+#### `new Libpq([conninfo], function callback(err, pgConn))`
 
 conninfo is optional; see [libpq -
 PQconnectdb](http://www.postgresql.org/docs/9.4/interactive/libpq-connect.html) for
 details. Connects to server and passes the connection to the callback.
 
-#### `pg.finish()`
+#### `pgConn.finish()`
 
-Disconnects from the server. pg is unusable after this.
+Disconnects from the server. pgConn is unusable after this.
 
 ### Queries
 
@@ -55,7 +60,9 @@ Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libp
 $ tools/run-tests
 ```
 
-To run the tests you need a PostgreSQL back-end reachable by typing `psql` with no connection parameters in your terminal. The tests expect PostgreSQL to be running on the same machine as the tests.
+To run the tests you need a PostgreSQL back-end reachable by typing `psql` with no connection
+parameters in your terminal. The tests expect PostgreSQL to be running on the same machine as the
+tests.
 
 
 ## license

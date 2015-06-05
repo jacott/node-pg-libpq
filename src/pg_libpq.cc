@@ -1,19 +1,10 @@
 #include "pg_libpq.h"
 
-using v8::FunctionTemplate;
-using v8::Local;
-using v8::Value;
-using v8::Number;
-using v8::Handle;
-using v8::Object;
-using v8::Array;
-using v8::String;
-
 char* Conn::getErrorMessage() {
   return PQerrorMessage(pq);
 }
 
-char* Conn::NewCString(Handle<Value> val) {
+char* Conn::newCStr(Handle<Value> val) {
   NanScope();
 
   Local<String> str = val->ToString();
@@ -21,6 +12,32 @@ char* Conn::NewCString(Handle<Value> val) {
   char* buffer = new char[len];
   str->WriteUtf8(buffer, len);
   return buffer;
+}
+
+char** Conn::newCStrArray(Handle<Array> params) {
+  NanScope();
+
+  int len = params->Length();
+
+  char** res = new char*[len];
+
+  for (int i = 0; i < len; i++) {
+    Handle<Value> val = params->Get(i);
+    if (val->IsNull()) {
+      res[i] = NULL;
+      continue;
+    }
+    res[i] = newCStr(val);
+  }
+
+  return res;
+}
+
+void Conn::deleteCStrArray(char** array, int length) {
+  for (int i = 0; i < length; i++) {
+    delete [] array[i];
+  }
+  delete [] array;
 }
 
 NAN_METHOD(Conn::setTypeConverter) {
@@ -57,7 +74,6 @@ void PQAsync::setResult(PGresult* value) {
   case PGRES_FATAL_ERROR: break;
   default:
     rowCount = PQntuples(value);
-    DEBUG("async rowcount %d", rowCount);
     int cCount = colCount = PQnfields(value);
     colData = (ColumnData*) malloc(sizeof(ColumnData) * cCount);
     for(int col = 0; col < cCount; ++col) {
@@ -125,7 +141,7 @@ NAN_METHOD(Conn::connectDB) {
 
   Conn* self = THIS();
   self->Ref();
-  ConnectDB* async = new ConnectDB(self, NewCString(args[0]),
+  ConnectDB* async = new ConnectDB(self, newCStr(args[0]),
                                 new NanCallback(args[1].As<v8::Function>()));
   async->runNext();
   NanReturnUndefined();
@@ -146,21 +162,40 @@ NAN_METHOD(Conn::exec) {
   NanScope();
 
   Conn* self = THIS();
-  ExecParams* async = new ExecParams(self, NewCString(args[0]), NULL,
+  ExecParams* async = new ExecParams(self, newCStr(args[0]), 0, NULL,
                                      new NanCallback(args[1].As<v8::Function>()));
   async->runNext();
   NanReturnUndefined();
 }
 
-ExecParams::ExecParams(Conn* conn, char* command, char** params, NanCallback* callback)
-  : PQAsync(conn, callback), command(command), params(params) {}
+
+NAN_METHOD(Conn::execParams) {
+  NanScope();
+
+  Conn* self = THIS();
+  Local<Array> params = Local<Array>::Cast(args[1]);
+  ExecParams* async = new ExecParams(self, newCStr(args[0]), params->Length(),
+                                     newCStrArray(params),
+                                     new NanCallback(args[2].As<v8::Function>()));
+  async->runNext();
+  NanReturnUndefined();
+}
+
+ExecParams::ExecParams(Conn* conn, char* command, int paramsLen, char** params, NanCallback* callback)
+  : PQAsync(conn, callback), command(command), paramsLen(paramsLen), params(params) {}
 
 ExecParams::~ExecParams() {
   delete []command;
+  if (params)
+    conn->deleteCStrArray(params, paramsLen);
 }
 
 void ExecParams::Execute() {
-  setResult(PQexec(conn->pq, command));
+  if (params)
+    setResult(PQexecParams(conn->pq, command,
+                           paramsLen, NULL, params, NULL, NULL, 0));
+  else
+    setResult(PQexec(conn->pq, command));
 }
 
 void PQAsync::HandleOKCallback() {
@@ -173,7 +208,6 @@ void PQAsync::HandleOKCallback() {
   if (resultType == PGRES_COMMAND_OK)
     res = NanNull();
   else {
-    DEBUG("DEBUG rowCount %d", rowCount);
     NanCallback& typeConverter = *conn->typeConverter;
     Local<Value> convArgs[2];
 
@@ -216,6 +250,7 @@ void InitAll(Handle<Object> exports) {
   NODE_SET_PROTOTYPE_METHOD(tpl, "connectDB", Conn::connectDB);
   NODE_SET_PROTOTYPE_METHOD(tpl, "finish", Conn::finish);
   NODE_SET_PROTOTYPE_METHOD(tpl, "exec", Conn::exec);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "execParams", Conn::execParams);
   NODE_SET_PROTOTYPE_METHOD(tpl, "setTypeConverter", Conn::setTypeConverter);
 
   exports->Set(NanNew<String>("PGLibPQ"), tpl->GetFunction());

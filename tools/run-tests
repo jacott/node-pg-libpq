@@ -1,6 +1,6 @@
 #!/bin/bash
-
 set -e
+cd $(dirname "$0")/..
 
 ulimit -c unlimited
 if [ -e "build/Makefile" ];then
