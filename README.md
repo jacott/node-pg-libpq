@@ -37,7 +37,7 @@ new Libpq(function (err, pgConn) {
 
 ## API
 
-### connecting
+### Connecting
 
 #### `new Libpq([conninfo], function callback(err, pgConn))`
 
@@ -54,13 +54,25 @@ Disconnects from the server. pgConn is unusable after this.
 See [libpq -
 Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libpq-exec.html)
 
-##### `pgConn.execParams(command, params, callback)`
+#### `pgConn.resultErrorField(name)`
+
+Returns an error field associated with the last error where `name` is string in upper case
+corresponding to the `PG_DIAG_` fields but without the `PG_DIAG_` prefix; for example
+`pgConn.resultErrorField('SEVERITY')`.
+
+For convenience the `SQLSTATE` field is set on the last error as the field `sqlState`.
+
+#### `pgConn.execParams(command, params, callback)`
 
 params are coverted to strings before passing to libpq. No type information is passed along with the
 paramters; it is left for the PostgreSQL server to derive the type. Arrays a naturally converted to
 json format but calling `pgConn.sqlArray(array)` will convert to array format `{1,2,3}`.
 
-## testing
+#### `pgConn.exec(command, callback)`
+
+Same as `execParams` but with no params.
+
+## Testing
 
 ```sh
 $ tools/run-tests
@@ -71,7 +83,7 @@ parameters in your terminal. The tests expect PostgreSQL to be running on the sa
 tests.
 
 
-## license
+## License
 
 The MIT License (MIT)
 

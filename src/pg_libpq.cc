@@ -40,6 +40,15 @@ void Conn::deleteCStrArray(char** array, int length) {
   delete [] array;
 }
 
+NAN_METHOD(Conn::resultErrorField) {
+  NanScope();
+
+  Conn* conn = THIS();
+  char* res = PQresultErrorField(conn->result, Local<Number>::Cast(args[0])->Value());
+  if (res)
+    NanReturnValue(NanNew<String>(res));
+}
+
 NAN_METHOD(Conn::setTypeConverter) {
   NanScope();
 
@@ -251,6 +260,7 @@ void InitAll(Handle<Object> exports) {
   NODE_SET_PROTOTYPE_METHOD(tpl, "finish", Conn::finish);
   NODE_SET_PROTOTYPE_METHOD(tpl, "exec", Conn::exec);
   NODE_SET_PROTOTYPE_METHOD(tpl, "execParams", Conn::execParams);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "resultErrorField", Conn::resultErrorField);
   NODE_SET_PROTOTYPE_METHOD(tpl, "setTypeConverter", Conn::setTypeConverter);
 
   exports->Set(NanNew<String>("PGLibPQ"), tpl->GetFunction());

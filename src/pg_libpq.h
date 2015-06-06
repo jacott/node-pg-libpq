@@ -26,6 +26,7 @@ class Conn : public node::ObjectWrap {
   static NAN_METHOD(finish);
   static NAN_METHOD(exec);
   static NAN_METHOD(execParams);
+  static NAN_METHOD(resultErrorField);
   static NAN_METHOD(setTypeConverter);
 
   static char* newCStr(Handle<Value> val);

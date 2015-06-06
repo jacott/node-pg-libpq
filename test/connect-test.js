@@ -45,6 +45,8 @@ describe('connecting', function() {
       oPg.exec("SELECT 'other' bad bad", function (err, result) {
         --other;
         assert(/syntax/.test(err.message));
+        assert.equal(err.sqlState, '42601');
+        assert.equal(oPg.resultErrorField('SEVERITY'), 'ERROR');
         oPg.finish();
         if (count === 0) done();
       });
