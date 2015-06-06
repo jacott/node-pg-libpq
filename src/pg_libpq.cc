@@ -240,9 +240,13 @@ void PQAsync::HandleOKCallback() {
     for (int ri = 0; ri < rCount; ++ri) {
       Handle<Object> row = NanNew<Object>();
       for (int ci = 0; ci < cCount; ++ci) {
-        convArgs[0] = NanNew<Number>(cd[ci].type);
-        convArgs[1] = NanNew<String>(PQgetvalue(result, ri, ci));
-        row->Set(colNames[ci], typeConverter.Call(2, convArgs));
+        if (PQgetisnull(result, ri, ci))
+          row->Set(colNames[ci], NanNull());
+        else {
+          convArgs[0] = NanNew<Number>(cd[ci].type);
+          convArgs[1] = NanNew<String>(PQgetvalue(result, ri, ci));
+          row->Set(colNames[ci], typeConverter.Call(2, convArgs));
+        }
       }
       rows->Set(ri, row);
     }
