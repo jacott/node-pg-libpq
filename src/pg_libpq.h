@@ -62,6 +62,7 @@ class PQAsync : public NanAsyncWorker {
 
   Conn* conn;
   PGresult* result;
+  int cmdTuples;
   int rowCount;
   int colCount;
   ColumnData* colData;

@@ -66,7 +66,7 @@ void Conn::setResult(PGresult* newResult) {
 PQAsync::PQAsync(Conn *conn, NanCallback* callback) :
   NanAsyncWorker(callback), conn(conn),
   result(NULL), colData(NULL), nextAction(NULL) {
-  rowCount = colCount = 0;
+  cmdTuples = rowCount = colCount = 0;
 }
 
 PQAsync::~PQAsync() {
@@ -75,12 +75,19 @@ PQAsync::~PQAsync() {
 }
 
 void PQAsync::setResult(PGresult* value) {
+  char* cmdTuplesStr = NULL;
   result = value;
   switch(PQresultStatus(value)) {
   case PGRES_EMPTY_QUERY: break;
   case PGRES_BAD_RESPONSE: break;
   case PGRES_NONFATAL_ERROR: break;
   case PGRES_FATAL_ERROR: break;
+  case PGRES_COMMAND_OK:
+    cmdTuplesStr = PQcmdTuples(value);
+    if (cmdTuplesStr && strlen(cmdTuplesStr) > 0) {
+      sscanf(cmdTuplesStr, "%d", &cmdTuples);
+    }
+    return;
   default:
     rowCount = PQntuples(value);
     int cCount = colCount = PQnfields(value);
@@ -215,7 +222,7 @@ void PQAsync::HandleOKCallback() {
   PGresult* result = this->result;
   ExecStatusType resultType = PQresultStatus(result);
   if (resultType == PGRES_COMMAND_OK)
-    res = NanNull();
+    res = NanNew<Number>(cmdTuples);
   else {
     NanCallback& typeConverter = *conn->typeConverter;
     Local<Value> convArgs[2];
