@@ -21,6 +21,7 @@ class PQAsync;
 
 class Conn : public node::ObjectWrap {
  public:
+  ~Conn();
   static NAN_METHOD(create);
   static NAN_METHOD(connectDB);
   static NAN_METHOD(finish);
@@ -29,13 +30,14 @@ class Conn : public node::ObjectWrap {
   static NAN_METHOD(resultErrorField);
   static NAN_METHOD(setTypeConverter);
 
-  static char* newCStr(Handle<Value> val);
-  static char** newCStrArray(Handle<Array> params);
-  static void deleteCStrArray(char** array, int length);
+  static char* newUtf8String(Handle<Value> from);
+  static char** newUtf8StringArray(Handle<Array> params);
+  static void deleteUtf8StringArray(char** array, int length);
 
   void setResult(PGresult* newResult);
   char* getErrorMessage();
 
+  int state;
   PGconn* pq;
   PGresult* result;
   NanCallback* typeConverter;

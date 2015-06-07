@@ -1,20 +1,57 @@
 #include "pg_libpq.h"
 
+#define PGLIBPQ_STATE_INIT -1
+#define PGLIBPQ_STATE_CLOSED 0
+#define PGLIBPQ_STATE_READY 1
+#define PGLIBPQ_STATE_BUSY 2
+
+#define IS_CLOSED(conn) conn->state == PGLIBPQ_STATE_CLOSED
+#define ASSERT_STATE(conn, expect) if(conn->state != PGLIBPQ_STATE_ ## expect) {\
+  NanThrowError("connection in unexpected state"); \
+  return; \
+  }
+
+#define ASSERT_CAN_QUEUE(conn) if(conn->state <= PGLIBPQ_STATE_CLOSED) {\
+  NanThrowError("connection in unexpected state"); \
+  return; \
+  }
+
+static void cleanup(Conn* conn) {
+  if (IS_CLOSED(conn)) return;
+
+  conn->state = PGLIBPQ_STATE_CLOSED;
+
+  if (conn->queueTail) {
+    PQAsync* queued = conn->queueTail->nextAction;
+    while(queued) {
+      delete queued;
+      queued = queued->nextAction;
+    }
+  }
+  conn->setResult(NULL);
+  if (conn->typeConverter)
+    delete conn->typeConverter;
+  PQfinish(conn->pq);
+  conn->pq = NULL;
+}
+
+Conn::~Conn() {
+  cleanup(this); // in case finish was not called
+}
+
 char* Conn::getErrorMessage() {
   return PQerrorMessage(pq);
 }
 
-char* Conn::newCStr(Handle<Value> val) {
-  NanScope();
-
-  Local<String> str = val->ToString();
-  int len = str->Utf8Length() + 1;
-  char* buffer = new char[len];
-  str->WriteUtf8(buffer, len);
-  return buffer;
+char* Conn::newUtf8String(Handle<Value> from) {
+  v8::Local<v8::String> toStr = from->ToString();
+  int size = toStr->Utf8Length();
+  char* buf = new char[size + 1];
+  toStr->WriteUtf8(buf);
+  return buf;
 }
 
-char** Conn::newCStrArray(Handle<Array> params) {
+char** Conn::newUtf8StringArray(Handle<Array> params) {
   NanScope();
 
   int len = params->Length();
@@ -27,13 +64,13 @@ char** Conn::newCStrArray(Handle<Array> params) {
       res[i] = NULL;
       continue;
     }
-    res[i] = newCStr(val);
+    res[i] = newUtf8String(val);
   }
 
   return res;
 }
 
-void Conn::deleteCStrArray(char** array, int length) {
+void Conn::deleteUtf8StringArray(char** array, int length) {
   for (int i = 0; i < length; i++) {
     delete [] array[i];
   }
@@ -53,6 +90,8 @@ NAN_METHOD(Conn::setTypeConverter) {
   NanScope();
 
   Conn* self = THIS();
+  if (self->typeConverter)
+    delete self->typeConverter;
   self->typeConverter = new NanCallback(args[0].As<v8::Function>());
 }
 
@@ -105,12 +144,21 @@ void PQAsync::setResult(PGresult* value) {
 }
 
 void PQAsync::WorkComplete() {
+  if (IS_CLOSED(conn)) {
+    delete this;
+    return;
+  }
+
   conn->setResult(result);
   NanAsyncWorker::WorkComplete();
 
-  if (conn->queueTail == this)
+  if (IS_CLOSED(conn))
+    return;                     // connection closed during callback
+
+  if (conn->queueTail == this) {
+    conn->state = PGLIBPQ_STATE_READY;
     conn->queueTail = NULL;
-  else {
+  } else {
     NanAsyncQueueWorker(nextAction);
     nextAction = NULL;
   }
@@ -120,6 +168,7 @@ void PQAsync::runNext() {
   if (conn->queueTail) {
     conn->queueTail = conn->queueTail->nextAction = this;
   } else {
+    conn->state = PGLIBPQ_STATE_BUSY;
     conn->queueTail = this;
     NanAsyncQueueWorker(this);
   }
@@ -145,8 +194,10 @@ NAN_METHOD(Conn::create) {
   NanScope();
 
   Conn* conn = new Conn();
+  conn->state = PGLIBPQ_STATE_INIT;
   conn->result = NULL;
   conn->queueTail = NULL;
+  conn->typeConverter = NULL;
   conn->Wrap(args.This());
 
   NanReturnValue(args.This());
@@ -156,8 +207,10 @@ NAN_METHOD(Conn::connectDB) {
   NanScope();
 
   Conn* self = THIS();
+  ASSERT_STATE(self, INIT);
   self->Ref();
-  ConnectDB* async = new ConnectDB(self, newCStr(args[0]),
+  self->state = PGLIBPQ_STATE_READY;
+  ConnectDB* async = new ConnectDB(self, newUtf8String(args[0]),
                                 new NanCallback(args[1].As<v8::Function>()));
   async->runNext();
   NanReturnUndefined();
@@ -166,11 +219,9 @@ NAN_METHOD(Conn::connectDB) {
 NAN_METHOD(Conn::finish) {
   NanScope();
 
-  Conn* self = THIS();
-  self->setResult(NULL);
-  PQfinish(self->pq);
-  self->pq = NULL;
-  self->Unref();
+  Conn* conn = THIS();
+  cleanup(conn);
+  conn->Unref();
   NanReturnUndefined();
 }
 
@@ -178,7 +229,9 @@ NAN_METHOD(Conn::exec) {
   NanScope();
 
   Conn* self = THIS();
-  ExecParams* async = new ExecParams(self, newCStr(args[0]), 0, NULL,
+  ASSERT_CAN_QUEUE(self);
+
+  ExecParams* async = new ExecParams(self, newUtf8String(args[0]), 0, NULL,
                                      new NanCallback(args[1].As<v8::Function>()));
   async->runNext();
   NanReturnUndefined();
@@ -189,9 +242,11 @@ NAN_METHOD(Conn::execParams) {
   NanScope();
 
   Conn* self = THIS();
+  ASSERT_CAN_QUEUE(self);
+
   Local<Array> params = Local<Array>::Cast(args[1]);
-  ExecParams* async = new ExecParams(self, newCStr(args[0]), params->Length(),
-                                     newCStrArray(params),
+  ExecParams* async = new ExecParams(self, newUtf8String(args[0]), params->Length(),
+                                     newUtf8StringArray(params),
                                      new NanCallback(args[2].As<v8::Function>()));
   async->runNext();
   NanReturnUndefined();
@@ -203,7 +258,7 @@ ExecParams::ExecParams(Conn* conn, char* command, int paramsLen, char** params, 
 ExecParams::~ExecParams() {
   delete []command;
   if (params)
-    conn->deleteCStrArray(params, paramsLen);
+    conn->deleteUtf8StringArray(params, paramsLen);
 }
 
 void ExecParams::Execute() {

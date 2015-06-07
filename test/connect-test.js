@@ -22,6 +22,36 @@ describe('connecting', function() {
     });
   });
 
+  it("should throw error if connection is used in wrong state", function (done) {
+    new PG(function (err, pg) {
+      try {
+        pg.pq.connectDB(function (err) {
+          assert(false, "should not get here");
+        });
+        assert(false, "should have thrown exception");
+      } catch(ex) {
+        assert.equal(ex.message, "connection in unexpected state");
+      }
+      var pq = pg.pq;
+      pg.finish();
+      try {
+        pg.exec("SELECT 1 AS a", function (err) {
+          assert(false, "should not get here");
+        });
+      } catch(ex) {
+        assert.equal(ex.message, "connection is closed");
+      }
+      try {
+        pq.exec("SELECT 1 AS a", function (err) {
+          assert(false, "should not get here");
+        });
+      } catch(ex) {
+        assert.equal(ex.message, "connection in unexpected state");
+        done();
+      }
+    });
+  });
+
   it('connects asynchronously', function(done) {
     var other = 1;
     var count = 2;
@@ -38,6 +68,9 @@ describe('connecting', function() {
         assert.equal(--count, 0);
         pg.finish();
         if (other === 0) done();
+      });
+      pg.exec("I WONT RUN", function (err) {
+        assert.ifError(err);
       });
     });
     var oPg = new PG("host=/var/run/postgresql", function(err) {

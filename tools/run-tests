@@ -3,9 +3,8 @@ set -e
 cd $(dirname "$0")/..
 
 ulimit -c unlimited
-if [ -e "build/Makefile" ];then
-    make -C build -s
-else
-    node-gyp rebuild
+if [ ! -e "build/Makefile" ];then
+    node-gyp configure
 fi
+make -w -C build -s
 exec node_modules/.bin/mocha -C -R dot "$@"
