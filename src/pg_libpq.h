@@ -34,6 +34,8 @@ class Conn : public node::ObjectWrap {
   static char** newUtf8StringArray(Handle<Array> params);
   static void deleteUtf8StringArray(char** array, int length);
 
+  void pqRef();
+  void pqUnref();
   void setResult(PGresult* newResult);
   char* getErrorMessage();
 

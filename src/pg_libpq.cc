@@ -39,6 +39,14 @@ Conn::~Conn() {
   cleanup(this); // in case finish was not called
 }
 
+void Conn::pqRef() {
+  Ref();
+}
+
+void Conn::pqUnref() {
+  Unref();
+}
+
 char* Conn::getErrorMessage() {
   return PQerrorMessage(pq);
 }
@@ -106,11 +114,13 @@ PQAsync::PQAsync(Conn *conn, NanCallback* callback) :
   NanAsyncWorker(callback), conn(conn),
   result(NULL), colData(NULL), nextAction(NULL) {
   cmdTuples = rowCount = colCount = 0;
+  conn->pqRef();
 }
 
 PQAsync::~PQAsync() {
   if (colData)
     free(colData);
+  conn->pqUnref();
 }
 
 void PQAsync::setResult(PGresult* value) {
@@ -208,7 +218,6 @@ NAN_METHOD(Conn::connectDB) {
 
   Conn* self = THIS();
   ASSERT_STATE(self, INIT);
-  self->Ref();
   self->state = PGLIBPQ_STATE_READY;
   ConnectDB* async = new ConnectDB(self, newUtf8String(args[0]),
                                 new NanCallback(args[1].As<v8::Function>()));
@@ -221,7 +230,6 @@ NAN_METHOD(Conn::finish) {
 
   Conn* conn = THIS();
   cleanup(conn);
-  conn->Unref();
   NanReturnUndefined();
 }
 
