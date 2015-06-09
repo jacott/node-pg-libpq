@@ -3,6 +3,7 @@
     {
       "target_name": "pg_libpq",
       "sources": [
+        "src/exec.cc",
         "src/pg_libpq.cc"
       ],
       'variables': {

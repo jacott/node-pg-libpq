@@ -30,7 +30,7 @@ describe('connecting', function() {
         });
         assert(false, "should have thrown exception");
       } catch(ex) {
-        assert.equal(ex.message, "connection in unexpected state");
+        assert.equal(ex.message, "connection not in INIT state");
       }
       var pq = pg.pq;
       pg.finish();
@@ -42,11 +42,11 @@ describe('connecting', function() {
         assert.equal(ex.message, "connection is closed");
       }
       try {
-        pq.exec("SELECT 1 AS a", function (err) {
+        pq.execParams("SELECT 1 AS a", null, function (err) {
           assert(false, "should not get here");
         });
       } catch(ex) {
-        assert.equal(ex.message, "connection in unexpected state");
+        assert.equal(ex.message, "connection not in READY state");
         done();
       }
     });

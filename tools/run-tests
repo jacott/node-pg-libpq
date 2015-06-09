@@ -2,6 +2,7 @@
 set -e
 cd $(dirname "$0")/..
 
+rm -f core
 ulimit -c unlimited
 if [ ! -e "build/Makefile" ];then
     node-gyp configure

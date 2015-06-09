@@ -1,4 +1,5 @@
 #include "pg_libpq.h"
+#include "exec.h"
 
 #define PGLIBPQ_STATE_INIT -1
 #define PGLIBPQ_STATE_CLOSED 0
@@ -6,28 +7,28 @@
 #define PGLIBPQ_STATE_BUSY 2
 
 #define IS_CLOSED(conn) conn->state == PGLIBPQ_STATE_CLOSED
-#define ASSERT_STATE(conn, expect) if(conn->state != PGLIBPQ_STATE_ ## expect) {\
-  NanThrowError("connection in unexpected state"); \
-  return; \
+
+#define ASSERT_STATE(conn, expect)                              \
+  if(conn->state != PGLIBPQ_STATE_ ## expect) {                 \
+    NanThrowError("connection not in " #expect " state");       \
+    return;                                                     \
   }
 
-#define ASSERT_CAN_QUEUE(conn) if(conn->state <= PGLIBPQ_STATE_CLOSED) {\
-  NanThrowError("connection in unexpected state"); \
-  return; \
+#define MAP_COMMAND(method, queue)              \
+  NAN_METHOD(method) {                          \
+    NanScope();                                 \
+    Conn* self = THIS();                        \
+    ASSERT_STATE(self, READY);                  \
+    queue(self, args);                          \
+    NanReturnUndefined();                       \
   }
+
 
 static void cleanup(Conn* conn) {
   if (IS_CLOSED(conn)) return;
 
   conn->state = PGLIBPQ_STATE_CLOSED;
 
-  if (conn->queueTail) {
-    PQAsync* queued = conn->queueTail->nextAction;
-    while(queued) {
-      delete queued;
-      queued = queued->nextAction;
-    }
-  }
   conn->setResult(NULL);
   if (conn->typeConverter)
     delete conn->typeConverter;
@@ -137,7 +138,10 @@ void PQAsync::setResult(PGresult* value) {
       sscanf(cmdTuplesStr, "%d", &cmdTuples);
     }
     return;
-  default:
+  case PGRES_COPY_IN: {
+    return;
+  }
+  default: {
     rowCount = PQntuples(value);
     int cCount = colCount = PQnfields(value);
     colData = (ColumnData*) malloc(sizeof(ColumnData) * cCount);
@@ -148,6 +152,7 @@ void PQAsync::setResult(PGresult* value) {
       cd.mod = PQfmod(value, col);
     }
     return;
+  }
   }
 
   SetErrorMessage(PQerrorMessage(conn->pq));
@@ -161,27 +166,6 @@ void PQAsync::WorkComplete() {
 
   conn->setResult(result);
   NanAsyncWorker::WorkComplete();
-
-  if (IS_CLOSED(conn))
-    return;                     // connection closed during callback
-
-  if (conn->queueTail == this) {
-    conn->state = PGLIBPQ_STATE_READY;
-    conn->queueTail = NULL;
-  } else {
-    NanAsyncQueueWorker(nextAction);
-    nextAction = NULL;
-  }
-}
-
-void PQAsync::runNext() {
-  if (conn->queueTail) {
-    conn->queueTail = conn->queueTail->nextAction = this;
-  } else {
-    conn->state = PGLIBPQ_STATE_BUSY;
-    conn->queueTail = this;
-    NanAsyncQueueWorker(this);
-  }
 }
 
 ConnectDB::ConnectDB(Conn* conn, char* params, NanCallback* callback)
@@ -206,7 +190,6 @@ NAN_METHOD(Conn::create) {
   Conn* conn = new Conn();
   conn->state = PGLIBPQ_STATE_INIT;
   conn->result = NULL;
-  conn->queueTail = NULL;
   conn->typeConverter = NULL;
   conn->Wrap(args.This());
 
@@ -220,8 +203,8 @@ NAN_METHOD(Conn::connectDB) {
   ASSERT_STATE(self, INIT);
   self->state = PGLIBPQ_STATE_READY;
   ConnectDB* async = new ConnectDB(self, newUtf8String(args[0]),
-                                new NanCallback(args[1].As<v8::Function>()));
-  async->runNext();
+                                   new NanCallback(args[1].As<v8::Function>()));
+  NanAsyncQueueWorker(async);
   NanReturnUndefined();
 }
 
@@ -229,63 +212,33 @@ NAN_METHOD(Conn::finish) {
   NanScope();
 
   Conn* conn = THIS();
+
+  ASSERT_STATE(conn, READY);
   cleanup(conn);
   NanReturnUndefined();
 }
 
-NAN_METHOD(Conn::exec) {
-  NanScope();
-
-  Conn* self = THIS();
-  ASSERT_CAN_QUEUE(self);
-
-  ExecParams* async = new ExecParams(self, newUtf8String(args[0]), 0, NULL,
-                                     new NanCallback(args[1].As<v8::Function>()));
-  async->runNext();
-  NanReturnUndefined();
-}
-
-
-NAN_METHOD(Conn::execParams) {
-  NanScope();
-
-  Conn* self = THIS();
-  ASSERT_CAN_QUEUE(self);
-
-  Local<Array> params = Local<Array>::Cast(args[1]);
-  ExecParams* async = new ExecParams(self, newUtf8String(args[0]), params->Length(),
-                                     newUtf8StringArray(params),
-                                     new NanCallback(args[2].As<v8::Function>()));
-  async->runNext();
-  NanReturnUndefined();
-}
-
-ExecParams::ExecParams(Conn* conn, char* command, int paramsLen, char** params, NanCallback* callback)
-  : PQAsync(conn, callback), command(command), paramsLen(paramsLen), params(params) {}
-
-ExecParams::~ExecParams() {
-  delete []command;
-  if (params)
-    conn->deleteUtf8StringArray(params, paramsLen);
-}
-
-void ExecParams::Execute() {
-  if (params)
-    setResult(PQexecParams(conn->pq, command,
-                           paramsLen, NULL, params, NULL, NULL, 0));
-  else
-    setResult(PQexec(conn->pq, command));
-}
+MAP_COMMAND(Conn::execParams, ExecParams::queue)
+MAP_COMMAND(Conn::copyFromStream, CopyFromStream::queue)
+MAP_COMMAND(Conn::putCopyData, CopyFromStream::putCopyData)
+MAP_COMMAND(Conn::putCopyEnd, CopyFromStream::putCopyEnd)
 
 void PQAsync::HandleOKCallback() {
   NanScope();
 
-  Handle<Value> res;
+  Local<Value> cbArgs[] = {
+    NanNull(),
+    buildResult(),
+  };
 
+  callback->Call(2, cbArgs);
+}
+
+Handle<Value> PQAsync::buildResult() {
   PGresult* result = this->result;
   ExecStatusType resultType = PQresultStatus(result);
   if (resultType == PGRES_COMMAND_OK)
-    res = NanNew<Number>(cmdTuples);
+    return NanNew<Number>(cmdTuples);
   else {
     NanCallback& typeConverter = *conn->typeConverter;
     Local<Value> convArgs[2];
@@ -313,15 +266,8 @@ void PQAsync::HandleOKCallback() {
       }
       rows->Set(ri, row);
     }
-    res = rows;
+    return rows;
   }
-
-  Local<Value> cbArgs[] = {
-    NanNull(),
-    res
-  };
-
-  callback->Call(2, cbArgs);
 }
 
 
@@ -332,8 +278,10 @@ void InitAll(Handle<Object> exports) {
 
   NODE_SET_PROTOTYPE_METHOD(tpl, "connectDB", Conn::connectDB);
   NODE_SET_PROTOTYPE_METHOD(tpl, "finish", Conn::finish);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "exec", Conn::exec);
   NODE_SET_PROTOTYPE_METHOD(tpl, "execParams", Conn::execParams);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "copyFromStream", Conn::copyFromStream);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "putCopyData", Conn::putCopyData);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "putCopyEnd", Conn::putCopyEnd);
   NODE_SET_PROTOTYPE_METHOD(tpl, "resultErrorField", Conn::resultErrorField);
   NODE_SET_PROTOTYPE_METHOD(tpl, "setTypeConverter", Conn::setTypeConverter);
 

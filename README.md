@@ -65,12 +65,26 @@ For convenience the `SQLSTATE` field is set on the last error as the field `sqlS
 #### `pgConn.execParams(command, params, callback)`
 
 params are coverted to strings before passing to libpq. No type information is passed along with the
-paramters; it is left for the PostgreSQL server to derive the type. Arrays a naturally converted to
+paramters; it is left for the PostgreSQL server to derive the type. Arrays are naturally converted to
 json format but calling `pgConn.sqlArray(array)` will convert to array format `{1,2,3}`.
 
 #### `pgConn.exec(command, callback)`
 
 Same as `execParams` but with no params.
+
+#### `pgConn.copyFromStream(command, [params], callback)`
+
+Copies data from a Writable stream into the database using the `COPY table FROM STDIN` statement.
+
+Example:
+
+```js
+var dbStream = pgConn.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv) ',
+      function (err) {console.log("finished", err)});
+
+dbStream.write('123,"name","address"\n');
+dbStream.end();
+```
 
 ## Testing
 

@@ -17,7 +17,7 @@ using v8::String;
 
 class PQAsync;
 
-#define DEBUG(format, arg) // fprintf(stderr, format, arg)
+// #define DE BUG(...) fprintf(stderr, __VA_ARGS__)
 
 class Conn : public node::ObjectWrap {
  public:
@@ -25,8 +25,10 @@ class Conn : public node::ObjectWrap {
   static NAN_METHOD(create);
   static NAN_METHOD(connectDB);
   static NAN_METHOD(finish);
-  static NAN_METHOD(exec);
   static NAN_METHOD(execParams);
+  static NAN_METHOD(copyFromStream);
+  static NAN_METHOD(putCopyData);
+  static NAN_METHOD(putCopyEnd);
   static NAN_METHOD(resultErrorField);
   static NAN_METHOD(setTypeConverter);
 
@@ -43,10 +45,9 @@ class Conn : public node::ObjectWrap {
   PGconn* pq;
   PGresult* result;
   NanCallback* typeConverter;
-  PQAsync* queueTail;
 };
 
-#define THIS() ObjectWrap::Unwrap<Conn>(args.This());
+#define THIS() ObjectWrap::Unwrap<Conn>(args.This())
 
 struct ColumnData {
   char* name;
@@ -60,9 +61,10 @@ class PQAsync : public NanAsyncWorker {
   ~PQAsync();
   void setResult(PGresult* value);
   void WorkComplete();
-  void runNext();
 
   void HandleOKCallback();
+
+  virtual Handle<Value> buildResult();
 
   Conn* conn;
   PGresult* result;
@@ -81,18 +83,6 @@ class ConnectDB : public PQAsync {
 
  private:
   char* params;
-};
-
-class ExecParams : public PQAsync {
- public:
-  ExecParams(Conn* conn, char* command, int paramsLen, char** params, NanCallback* callback);
-  ~ExecParams();
-  void Execute();
-
- private:
-  char* command;
-  int paramsLen;
-  char** params;
 };
 
 #endif
