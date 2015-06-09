@@ -16,10 +16,11 @@ describe('connecting', function() {
   });
 
   it('connects using tcp socket', function (done) {
-    new PG("host=localhost password=rubbish", function (err) {
-      assert(/password authentication failed/.test(err.message), err.message);
-      done();
-    });
+    new PG("host=localhost password=bad")
+      .catch(function (err) {
+        assert(/password authentication failed/.test(err.message), err.message);
+        done();
+      });
   });
 
   it("should throw error if connection is used in wrong state", function (done) {
@@ -53,36 +54,33 @@ describe('connecting', function() {
   });
 
   it('connects asynchronously', function(done) {
-    var other = 1;
-    var count = 2;
-    var pg = new PG("host=/var/run/postgresql", function(err) {
-      assert.ifError(err);
-      pg.exec("SELECT 1 AS b, 'world' as hello", function (err, result) {
-        assert.ifError(err);
-        assert.equal(JSON.stringify(result), JSON.stringify([{b: 1, hello: 'world'}]));
-        --count;
-      });
-      pg.exec("SELECT 2 AS x", function (err, result) {
-        assert.ifError(err);
-        assert.equal(JSON.stringify(result), JSON.stringify([{x: 2}]));
-        assert.equal(--count, 0);
-        pg.finish();
-        if (other === 0) done();
-      });
-      pg.exec("I WONT RUN", function (err) {
-        assert.ifError(err);
-      });
-    });
-    var oPg = new PG("host=/var/run/postgresql", function(err) {
-      assert.ifError(err);
-      oPg.exec("SELECT 'other' bad bad", function (err, result) {
-        --other;
-        assert(/syntax/.test(err.message));
-        assert.equal(err.sqlState, '42601');
-        assert.equal(oPg.resultErrorField('SEVERITY'), 'ERROR');
-        oPg.finish();
-        if (count === 0) done();
-      });
+    var me = true;
+    var other = true;
+    var pg = new PG("host=/var/run/postgresql");
+    pg.then(function() {
+      return pg.exec("SELECT 1 AS b, 'world' as hello");
+
+    }).then(function (result) {
+      assert.equal(JSON.stringify(result), JSON.stringify([{b: 1, hello: 'world'}]));
+      return pg.exec("SELECT 2 AS x");
+
+    }).then(function (result) {
+      assert.equal(JSON.stringify(result), JSON.stringify([{x: 2}]));
+      pg.finish();
+      me = false;
+      other || done();
+
+    }).catch(function (err) {done(err)});
+    var oPg = new PG("host=/var/run/postgresql");
+    oPg.then(function() {
+      return oPg.exec("SELECT 'other' bad bad");
+    }).catch(function (err) {
+      assert(/syntax/.test(err.message));
+      assert.equal(err.sqlState, '42601');
+      assert.equal(oPg.resultErrorField('SEVERITY'), 'ERROR');
+      oPg.finish();
+      other = false;
+      me || done();
     });
   });
 });

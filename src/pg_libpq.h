@@ -17,7 +17,7 @@ using v8::String;
 
 class PQAsync;
 
-// #define DE BUG(...) fprintf(stderr, __VA_ARGS__)
+#define DEBUG(...) fprintf(stderr, __VA_ARGS__)
 
 class Conn : public node::ObjectWrap {
  public:
@@ -42,6 +42,7 @@ class Conn : public node::ObjectWrap {
   char* getErrorMessage();
 
   int state;
+  bool copy_inprogress;
   PGconn* pq;
   PGresult* result;
   NanCallback* typeConverter;

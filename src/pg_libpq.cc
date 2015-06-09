@@ -1,6 +1,10 @@
 #include "pg_libpq.h"
 #include "exec.h"
 
+#include <sys/types.h>
+#include <unistd.h>
+
+#define PGLIBPQ_STATE_ABORT -2
 #define PGLIBPQ_STATE_INIT -1
 #define PGLIBPQ_STATE_CLOSED 0
 #define PGLIBPQ_STATE_READY 1
@@ -19,6 +23,7 @@
     NanScope();                                 \
     Conn* self = THIS();                        \
     ASSERT_STATE(self, READY);                  \
+    self->state = PGLIBPQ_STATE_BUSY;           \
     queue(self, args);                          \
     NanReturnUndefined();                       \
   }
@@ -28,15 +33,11 @@ static void cleanup(Conn* conn) {
   if (IS_CLOSED(conn)) return;
 
   conn->state = PGLIBPQ_STATE_CLOSED;
-
   conn->setResult(NULL);
-  if (conn->typeConverter)
-    delete conn->typeConverter;
-  PQfinish(conn->pq);
-  conn->pq = NULL;
 }
 
 Conn::~Conn() {
+  PQfinish(this->pq);
   cleanup(this); // in case finish was not called
 }
 
@@ -159,13 +160,13 @@ void PQAsync::setResult(PGresult* value) {
 }
 
 void PQAsync::WorkComplete() {
-  if (IS_CLOSED(conn)) {
-    delete this;
-    return;
-  }
-
   conn->setResult(result);
+  if (conn->state == PGLIBPQ_STATE_BUSY)
+    conn->state = PGLIBPQ_STATE_READY;
   NanAsyncWorker::WorkComplete();
+  if (conn->state == PGLIBPQ_STATE_ABORT) {
+    cleanup(conn);
+  }
 }
 
 ConnectDB::ConnectDB(Conn* conn, char* params, NanCallback* callback)
@@ -189,6 +190,7 @@ NAN_METHOD(Conn::create) {
 
   Conn* conn = new Conn();
   conn->state = PGLIBPQ_STATE_INIT;
+  conn->copy_inprogress = false;
   conn->result = NULL;
   conn->typeConverter = NULL;
   conn->Wrap(args.This());
@@ -208,13 +210,38 @@ NAN_METHOD(Conn::connectDB) {
   NanReturnUndefined();
 }
 
+char* cancel(Conn* conn) {
+  conn->copy_inprogress = false;
+  PGcancel* handle = PQgetCancel(conn->pq);
+  if (handle) {
+    char* errbuf=(char*)malloc(256);
+    int success = PQcancel(handle, errbuf, 256);
+    PQfreeCancel(handle);
+
+    if (success ||  *errbuf == '\0') {
+      free(errbuf);
+      return NULL;
+    }
+    return errbuf;
+  }
+  return NULL;
+}
+
 NAN_METHOD(Conn::finish) {
   NanScope();
 
   Conn* conn = THIS();
 
-  ASSERT_STATE(conn, READY);
-  cleanup(conn);
+  if (conn->state == PGLIBPQ_STATE_BUSY || conn->copy_inprogress) {
+    char* errMsg = cancel(conn);
+    if (errMsg) free(errMsg);
+    conn->state = PGLIBPQ_STATE_ABORT;
+
+  } else {
+    ASSERT_STATE(conn, READY);
+    cleanup(conn);
+  }
+
   NanReturnUndefined();
 }
 

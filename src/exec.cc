@@ -59,6 +59,7 @@ class CopyFromStreamResultHandler : public ExecParamsResultHandler {
 void CopyFromStream::queue(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args) {
   ExecParams* async = ExecParams::newInstance(conn, args);
   async->setResultHandler(new CopyFromStreamResultHandler());
+  conn->copy_inprogress = true;
   NanAsyncQueueWorker(async);
 }
 
@@ -109,5 +110,6 @@ public:
 void CopyFromStream::putCopyEnd(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args) {
   char *error = args[0]->IsNull() ? (char*)NULL : Conn::newUtf8String(args[0]);
   PQAsync* async = new PutCopyEnd(conn, error, new NanCallback(args[1].As<v8::Function>()));
+  conn->copy_inprogress = false;
   NanAsyncQueueWorker(async);
 }
