@@ -34,10 +34,10 @@ static void cleanup(Conn* conn) {
 
   conn->state = PGLIBPQ_STATE_CLOSED;
   conn->setResult(NULL);
+  PQfinish(conn->pq);
 }
 
 Conn::~Conn() {
-  PQfinish(this->pq);
   cleanup(this); // in case finish was not called
 }
 
