@@ -19,6 +19,12 @@ describe('crud', function() {
     pg = null;
   });
 
+  afterEach(function (done) {
+    pg && pg.exec("truncate node_pg_test", function (err) {
+      done(err);
+    });
+  });
+
   it('should count updates and deletes', function(done) {
     pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
                   [1, 'one', {one: 1}])
