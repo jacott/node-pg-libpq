@@ -203,7 +203,7 @@ NAN_METHOD(Conn::connectDB) {
 
   Conn* self = THIS();
   ASSERT_STATE(self, INIT);
-  self->state = PGLIBPQ_STATE_READY;
+  self->state = PGLIBPQ_STATE_BUSY;
   ConnectDB* async = new ConnectDB(self, newUtf8String(args[0]),
                                    new NanCallback(args[1].As<v8::Function>()));
   NanAsyncQueueWorker(async);
@@ -225,6 +225,13 @@ char* cancel(Conn* conn) {
     return errbuf;
   }
   return NULL;
+}
+
+NAN_METHOD(Conn::isReady) {
+  NanScope();
+
+  Conn* conn = THIS();
+  NanReturnValue(NanNew<v8::Boolean>(conn->state == PGLIBPQ_STATE_READY));
 }
 
 NAN_METHOD(Conn::finish) {
@@ -311,6 +318,7 @@ void InitAll(Handle<Object> exports) {
   NODE_SET_PROTOTYPE_METHOD(tpl, "putCopyEnd", Conn::putCopyEnd);
   NODE_SET_PROTOTYPE_METHOD(tpl, "resultErrorField", Conn::resultErrorField);
   NODE_SET_PROTOTYPE_METHOD(tpl, "setTypeConverter", Conn::setTypeConverter);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "isReady", Conn::isReady);
 
   exports->Set(NanNew<String>("PGLibPQ"), tpl->GetFunction());
 }

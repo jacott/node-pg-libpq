@@ -57,7 +57,9 @@ describe('connecting', function() {
     var me = true;
     var other = true;
     var pg = new PG("host=/var/run/postgresql");
+    assert.equal(pg.isReady(), false);
     pg.then(function() {
+      assert.equal(pg.isReady(), true);
       return pg.exec("SELECT 1 AS b, 'world' as hello");
 
     }).then(function (result) {

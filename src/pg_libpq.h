@@ -31,6 +31,7 @@ class Conn : public node::ObjectWrap {
   static NAN_METHOD(putCopyEnd);
   static NAN_METHOD(resultErrorField);
   static NAN_METHOD(setTypeConverter);
+  static NAN_METHOD(isReady);
 
   static char* newUtf8String(Handle<Value> from);
   static char** newUtf8StringArray(Handle<Array> params);
