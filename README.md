@@ -86,7 +86,8 @@ details.
 If a callback function is supplied it is called with the database connection `pgConn` if successful
 otherwise `err` explains why the connection failed.
 
-If no callback is supplied the instance method [`pgConn.then(function)`](#pgConnthen) should be used.
+If no callback is supplied the instance method [`pgConn.then(function)`](#pgconnthenfunction) should
+be used.
 
 #### `pgConn.finish()`
 
