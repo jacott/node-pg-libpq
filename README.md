@@ -11,8 +11,11 @@ This library is lower level than [node-postgres](https://github.com/brianc/node-
  than [node-libpq](https://github.com/brianc/node-libpq) hence the name node-pg-libpq. It
  makes use of [node-pg-types](https://github.com/brianc/node-pg-types).
 
-This library is currently incomplete and only implements the features I need. For instance COPY
-commands do not work. I will accept PRs though.
+This library is currently incomplete and only implements the features I need. For instance the `COPY
+TO STDOUT` command is not present yet. I will accept PRs though.
+
+ES6 Promises are supported by not passing a callback to the query commands. Note that older versions
+of node may need a Promise npm to be installed to use promises.
 
 ## Install
 
@@ -39,20 +42,28 @@ new Libpq(function (err, pgConn) {
 
 ### Connecting
 
-#### `new Libpq([conninfo], function callback(err, pgConn))`
+#### `new Libpq([conninfo], [function callback(err, pgConn)])`
 
 conninfo is optional; see [libpq -
 PQconnectdb](http://www.postgresql.org/docs/9.4/interactive/libpq-connect.html) for
-details. Connects to server and passes the connection to the callback.
+details. Connects to server and passes the connection, to the callback, or as the `promise.then`
+argument if no callback is given.
 
 #### `pgConn.finish()`
 
-Disconnects from the server. pgConn is unusable after this.
+Cancels any command that is in progress and disconnects from the server. This pgConn instance is
+unusable afterwards.
 
-### Queries
+### Queries / Commands
 
 See [libpq -
 Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libpq-exec.html)
+
+An exception will be thrown if more than one command at a time is sent to
+pgConn. **`pgConn.isReady()`** returns false if a command is currently in progress.
+
+Most methods have an optional callback. When no callback is supplied the method will return a
+`Promise`.
 
 #### `pgConn.resultErrorField(name)`
 
@@ -62,19 +73,20 @@ corresponding to the `PG_DIAG_` fields but without the `PG_DIAG_` prefix; for ex
 
 For convenience the `SQLSTATE` field is set on the last error as the field `sqlState`.
 
-#### `pgConn.execParams(command, params, callback)`
+#### `pgConn.execParams(command, params, [callback])`
 
 params are coverted to strings before passing to libpq. No type information is passed along with the
 paramters; it is left for the PostgreSQL server to derive the type. Arrays are naturally converted to
 json format but calling `pgConn.sqlArray(array)` will convert to array format `{1,2,3}`.
 
-#### `pgConn.exec(command, callback)`
+#### `pgConn.exec(command, [callback])`
 
 Same as `execParams` but with no params.
 
-#### `pgConn.copyFromStream(command, [params], callback)`
+#### `stream = pgConn.copyFromStream(command, [params], callback)`
 
 Copies data from a Writable stream into the database using the `COPY table FROM STDIN` statement.
+There is no promise version of this command.
 
 Example:
 
@@ -86,7 +98,7 @@ dbStream.write('123,"name","address"\n');
 dbStream.end();
 ```
 
-## Testing
+## Testing / Developing
 
 ```sh
 $ tools/run-tests

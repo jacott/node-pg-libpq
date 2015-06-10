@@ -8,4 +8,6 @@ if [ ! -e "build/Makefile" ];then
     node-gyp configure
 fi
 make -w -C build -s
+echo "test: Entering directory '$(pwd)'"
+
 exec node_modules/.bin/mocha -C -R dot "$@"

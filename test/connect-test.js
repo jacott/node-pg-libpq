@@ -68,7 +68,9 @@ describe('connecting', function() {
 
     }).then(function (result) {
       assert.equal(JSON.stringify(result), JSON.stringify([{x: 2}]));
+      assert.equal(pg.isReady(), true);
       pg.finish();
+      assert.equal(pg.isReady(), false);
       me = false;
       other || done();
 
