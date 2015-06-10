@@ -54,14 +54,39 @@ pgConn.then(function () {
 
 ## API
 
+Most methods have an optional callback. When no callback is supplied the method will return a
+Promise.
+
 ### Connecting
+
+This package does not include a connection pool. You can use
+[generic-pool](https://www.npmjs.com/package/generic-pool) or similar like so:
+
+```js
+var Libpq = require('pg-libpq');
+var poolModule = require('generic-pool');
+var pool = poolModule.Pool({
+  name: 'PostgreSQL',
+  create: function(callback) {
+    new Libpq("postgresql://localhost/testdb", callback);
+  },
+  destroy: function(pgConn) {
+    pgConn.finish();
+  },
+  max: 10,
+});
+```
 
 #### `new Libpq([conninfo], [function callback(err, pgConn)])`
 
-conninfo is optional; see [libpq -
+Returns a connection (pgConn) to the database. `conninfo` is optional; see [libpq -
 PQconnectdb](http://www.postgresql.org/docs/9.4/interactive/libpq-connect.html) for
-details. Connects to server and passes the connection, to the callback, or as the `promise.then`
-argument if no callback is given.
+details.
+
+If a callback function is supplied it is called with the database connection `pgConn` if successful
+otherwise `err` explains why the connection failed.
+
+If no callback is supplied the instance method [`pgConn.then(function)`](#pgConnthen) should be used.
 
 #### `pgConn.finish()`
 
@@ -70,14 +95,19 @@ unusable afterwards.
 
 ### Queries / Commands
 
-See [libpq -
-Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libpq-exec.html)
+See [libpq - Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libpq-exec.html)
 
-An exception will be thrown if more than one command at a time is sent to
-pgConn. **`pgConn.isReady()`** returns false if a command is currently in progress.
+An exception will be thrown if more than one command at a time is sent to the same
+pgConn.
 
-Most methods have an optional callback. When no callback is supplied the method will return a
-`Promise`.
+#### `pgConn.isReady()`
+
+Return true if connection ready to receive a query/command.
+
+#### `pgConn.then(function)`
+
+Run function when the connection is ready. This method will wait for the current query chain to
+finish before running.
 
 #### `pgConn.resultErrorField(name)`
 

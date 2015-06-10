@@ -25,32 +25,39 @@ describe('crud', function() {
     });
   });
 
-  it('should count updates and deletes', function(done) {
+  it.only('should count updates and deletes', function(done) {
     pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
-                  [1, 'one', {one: 1}])
+                  [1, 'one', {one: 1}]);
 
-      .then(function (count) {
-        assert.equal(count, 1);
-        return pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
-                             [2, 'two', {two: 2}]);
+    pg.then(function (count) {
+      assert.equal(count, 1);
+      return pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
+                           [2, 'two', {two: 2}]);
 
-      }).then(function () {
-        return pg.execParams("UPDATE node_pg_test SET foo = $2, bar = $3 WHERE _id = $1",
-                             [1, 'two', {one: 2}]);
-      }).then(function (count) {
-        assert.equal(count, 1);
-        return pg.execParams("UPDATE node_pg_test SET bar = $2 WHERE foo = $1",
-                             ['two', null]);
-      }).then(function (count) {
-        assert.equal(count, 2);
+    }).then(function (count) {
+      assert.equal(count, 1);
+      return pg.exec('SELECT * FROM node_pg_test');
+    }).then(function (rows) {
+      assert.equal(rows.length, 2);
+    });
 
-        return pg.exec("DELETE FROM node_pg_test WHERE bar IS NULL");
-      }).then(function (count) {
-        assert.equal(count, 2);
-        done();
-      }).catch(function (err) {
-        done(err);
-      });
+    pg.then(function () {
+      return pg.execParams("UPDATE node_pg_test SET foo = $2, bar = $3 WHERE _id = $1",
+                           [1, 'two', {one: 2}]);
+    }).then(function (count) {
+      assert.equal(count, 1);
+      return pg.execParams("UPDATE node_pg_test SET bar = $2 WHERE foo = $1",
+                           ['two', null]);
+    }).then(function (count) {
+      assert.equal(count, 2);
+
+      return pg.exec("DELETE FROM node_pg_test WHERE bar IS NULL");
+    }).then(function (count) {
+      assert.equal(count, 2);
+      done();
+    }).catch(function (err) {
+      done(err);
+    });
   });
 
   it('should return nulls correctly', function (done) {
