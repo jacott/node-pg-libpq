@@ -38,6 +38,20 @@ new Libpq(function (err, pgConn) {
 });
 ```
 
+or with promises
+
+```js
+var Libpq = require('pg-libpq');
+var pgConn = new Libpq;
+pgConn.then(function () {
+    return pgConn.exec("SELECT 'world' AS hello");
+}).then(function (rows) {
+    console.log(rows);
+    pgConn.finish();
+});
+```
+
+
 ## API
 
 ### Connecting
