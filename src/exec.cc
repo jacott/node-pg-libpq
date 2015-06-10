@@ -102,6 +102,8 @@ public:
       SetErrorMessage(PQerrorMessage(conn->pq));
     else if (error)
       SetErrorMessage(error);
+    else
+      setResult(PQgetResult(conn->pq));
   }
 
   char *error;

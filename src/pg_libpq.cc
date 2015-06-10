@@ -231,7 +231,8 @@ NAN_METHOD(Conn::isReady) {
   NanScope();
 
   Conn* conn = THIS();
-  NanReturnValue(NanNew<v8::Boolean>(conn->state == PGLIBPQ_STATE_READY));
+  NanReturnValue(NanNew<v8::Boolean>(conn->state == PGLIBPQ_STATE_READY &&
+                                     ! conn->copy_inprogress));
 }
 
 NAN_METHOD(Conn::finish) {

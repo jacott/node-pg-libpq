@@ -20,14 +20,34 @@ describe('copy streaming', function() {
   });
 
   it("can cancel in progress", function (done) {
+    var wasReady;
+    assert.equal(pg.isReady(), true);
     var dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', function (err) {
+      assert.equal(wasReady, false);
       assert.equal(err.message, 'connection is closed');
       assert.equal(err.sqlState, '08003');
-      dbStream.end('123,"name","address"\n'); // shouldn't matter
-      done();
+      assert.equal(pg.isReady(), false);
+      dbStream.on('error', function (error) {
+        try {
+          assert.equal(error, 'connection closed');
+          done();
+        } catch(ex) {
+          done(ex);
+        }
+      });
+      dbStream.end('123,"name","2015-01-01"\n'); // should trigger above error
     });
-    dbStream.write('123,"name","address"\n');
-    pg.finish();
+    dbStream.write('123,"line 1","2015-02-02"\n');
+    assert.equal(pg.isReady(), false);
+    setTimeout(function () {
+      try {
+        wasReady = pg.isReady();
+        dbStream.write('456,"line 2","2015-02-02"\n');
+        pg.finish();
+      } catch(ex) {
+        done(ex);
+      }
+    }, 10);
   });
 
   it("should handle nesting", function (done) {
@@ -38,7 +58,7 @@ describe('copy streaming', function() {
         assert.ifError(err);
         done();
       });
-      dbStream2.write('123,"name","address"\n');
+      dbStream2.write('123,"name","2015-03-03"\n');
       dbStream2.end();
     });
     dbStream.write('123,"name","2015-11-18"\n');
