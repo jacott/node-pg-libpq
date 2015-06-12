@@ -100,7 +100,7 @@ NAN_METHOD(Conn::escapeLiteral) {
     PQfreemem(res);
     NanReturnValue(jsres);
   } else {
-    NanReturnUndefined();
+    NanThrowError(PQerrorMessage(conn->pq));
   }
 }
 
