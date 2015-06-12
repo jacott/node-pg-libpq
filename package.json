@@ -1,7 +1,7 @@
 {
   "name": "pg-libpq",
   "description": "Native, asynchronous, non-blocking interface to PostgreSQL",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": "Geoff Jacobsen <geoffjacobsen@gmail.com>",
   "license": "MIT",
   "main": "lib/pg-libpq",

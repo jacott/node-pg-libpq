@@ -87,6 +87,23 @@ void Conn::deleteUtf8StringArray(char** array, int length) {
   delete [] array;
 }
 
+NAN_METHOD(Conn::escapeLiteral) {
+  NanScope();
+
+  Conn* conn = THIS();
+
+  char *str = Conn::newUtf8String(args[0]);
+  uint len = Local<String>::Cast(args[0])->Length();
+  char* res = PQescapeLiteral(conn->pq, str, len);
+  if (res) {
+    Local<String> jsres = NanNew<String>(res);
+    PQfreemem(res);
+    NanReturnValue(jsres);
+  } else {
+    NanReturnUndefined();
+  }
+}
+
 NAN_METHOD(Conn::resultErrorField) {
   NanScope();
 
@@ -94,6 +111,8 @@ NAN_METHOD(Conn::resultErrorField) {
   char* res = PQresultErrorField(conn->result, Local<Number>::Cast(args[0])->Value());
   if (res)
     NanReturnValue(NanNew<String>(res));
+  else
+    NanReturnUndefined();
 }
 
 NAN_METHOD(Conn::setTypeConverter) {
@@ -320,6 +339,7 @@ void InitAll(Handle<Object> exports) {
   NODE_SET_PROTOTYPE_METHOD(tpl, "resultErrorField", Conn::resultErrorField);
   NODE_SET_PROTOTYPE_METHOD(tpl, "setTypeConverter", Conn::setTypeConverter);
   NODE_SET_PROTOTYPE_METHOD(tpl, "isReady", Conn::isReady);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "escapeLiteral", Conn::escapeLiteral);
 
   exports->Set(NanNew<String>("PGLibPQ"), tpl->GetFunction());
 }

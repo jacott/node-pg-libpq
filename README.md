@@ -128,6 +128,12 @@ json format but calling `pgConn.sqlArray(array)` will convert to array format `{
 
 Same as `execParams` but with no params.
 
+#### `escaped = pgConn.escapeLiteral(string)`
+
+Returns an escaped version of `string` including surrounding with single quotes. The escaping makes
+an untrustworthy string safe to include as part of a sql query. It is preferable to use such strings
+as a param in the `pgConn.execParams` command.
+
 #### `stream = pgConn.copyFromStream(command, [params], callback)`
 
 Copies data from a Writable stream into the database using the `COPY table FROM STDIN` statement.
