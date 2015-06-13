@@ -10,4 +10,6 @@ fi
 make -w -C build -s
 echo "test: Entering directory '$(pwd)'"
 
+export TZ=UTC
+
 exec node_modules/.bin/mocha -C -R dot "$@"

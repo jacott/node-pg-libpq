@@ -128,8 +128,7 @@ For updating calls such as INSERT, UPDATE and DELETE the callback will be called
 rows affected. For SELECT it is called with an array of rows. Each row is a key/value pair object
 where key is the column name and value is calculated using the
 [pg-types](https://www.npmjs.com/package/pg-types) npm package. If the value is `null` no entry will
-be given for that column. Note: pg-libpq overrides pg-type's function for date and timestamp without
-time zone conversion to set them using UTC.
+be given for that column.
 
 #### `pgConn.exec(command, [callback])`
 
