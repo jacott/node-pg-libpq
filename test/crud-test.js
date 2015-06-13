@@ -74,10 +74,7 @@ describe('crud', function() {
         return pg.exec('SELECT * FROM node_pg_test');
       }).then(function (results) {
         var result = results[0];
-        assert.equal(result._id, null);
-        assert.equal(result.foo, null);
-        assert.equal(result.bar, null);
-        assert.equal(result.baz, null);
+        assert.deepEqual(result, {});
 
         result = results[1];
         assert.equal(result._id, 1);

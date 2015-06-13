@@ -124,6 +124,13 @@ params are coverted to strings before passing to libpq. No type information is p
 paramters; it is left for the PostgreSQL server to derive the type. Arrays are naturally converted to
 json format but calling `pgConn.sqlArray(array)` will convert to array format `{1,2,3}`.
 
+For updating calls such as INSERT, UPDATE and DELETE the callback will be called with the number of
+rows affected. For SELECT it is called with an array of rows. Each row is a key/value pair object
+where key is the column name and value is calculated using the
+[pg-types](https://www.npmjs.com/package/pg-types) npm package. If the value is `null` no entry will
+be given for that column. Note: pg-libpq overrides pg-type's function for date and timestamp without
+time zone conversion to set them using UTC.
+
 #### `pgConn.exec(command, [callback])`
 
 Same as `execParams` but with no params.
