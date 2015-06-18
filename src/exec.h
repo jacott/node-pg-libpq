@@ -3,6 +3,8 @@
 
 #include "pg_libpq.h"
 
+#define ASYNC_COMMAND(name) static void name(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args)
+
 class ExecParams;
 
 class ExecParamsResultHandler {
@@ -33,6 +35,12 @@ class ExecParams : public PQAsync {
   char* command;
   int paramsLen;
   char** params;
+};
+
+class PreparedStatement {
+ public:
+  ASYNC_COMMAND(prepare);
+  ASYNC_COMMAND(execPrepared);
 };
 
 class CopyFromStream {

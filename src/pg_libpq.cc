@@ -273,6 +273,8 @@ NAN_METHOD(Conn::finish) {
 }
 
 MAP_COMMAND(Conn::execParams, ExecParams::queue)
+MAP_COMMAND(Conn::prepare, PreparedStatement::prepare)
+MAP_COMMAND(Conn::execPrepared, PreparedStatement::execPrepared)
 MAP_COMMAND(Conn::copyFromStream, CopyFromStream::queue)
 MAP_COMMAND(Conn::putCopyData, CopyFromStream::putCopyData)
 MAP_COMMAND(Conn::putCopyEnd, CopyFromStream::putCopyEnd)
@@ -331,6 +333,8 @@ void InitAll(Handle<Object> exports) {
   NODE_SET_PROTOTYPE_METHOD(tpl, "connectDB", Conn::connectDB);
   NODE_SET_PROTOTYPE_METHOD(tpl, "finish", Conn::finish);
   NODE_SET_PROTOTYPE_METHOD(tpl, "execParams", Conn::execParams);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "prepare", Conn::prepare);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "execPrepared", Conn::execPrepared);
   NODE_SET_PROTOTYPE_METHOD(tpl, "copyFromStream", Conn::copyFromStream);
   NODE_SET_PROTOTYPE_METHOD(tpl, "putCopyData", Conn::putCopyData);
   NODE_SET_PROTOTYPE_METHOD(tpl, "putCopyEnd", Conn::putCopyEnd);

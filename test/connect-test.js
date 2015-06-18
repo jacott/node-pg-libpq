@@ -74,7 +74,7 @@ describe('connecting', function() {
       me = false;
       other || done();
 
-    }).catch(function (err) {done(err)});
+    }).catch(done);
     var oPg = new PG("host=/var/run/postgresql");
     oPg.then(function() {
       return oPg.exec("SELECT 'other' bad bad");

@@ -55,9 +55,7 @@ describe('crud', function() {
     }).then(function (count) {
       assert.equal(count, 2);
       done();
-    }).catch(function (err) {
-      done(err);
-    });
+    }).catch(done);
   });
 
   it('should return nulls correctly', function (done) {
@@ -82,6 +80,6 @@ describe('crud', function() {
         assert.equal(result.bar.bar[0], 2);
         assert.equal(result.baz.getFullYear(), 2015);
         done();
-      }).catch(function (err) {done(err)});
+      }).catch(done);
   });
 });

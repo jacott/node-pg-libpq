@@ -11,9 +11,6 @@ This library is lower level than [node-postgres](https://github.com/brianc/node-
  than [node-libpq](https://github.com/brianc/node-libpq) hence the name node-pg-libpq. It
  makes use of [node-pg-types](https://github.com/brianc/node-pg-types).
 
-This library is currently incomplete and only implements the features I need. For instance the `COPY
-TO STDOUT` command is not present yet. I will accept PRs though.
-
 ES6 Promises are supported by not passing a callback to the query commands. Note that older versions
 of node may need a Promise npm to be installed to use promises.
 
@@ -103,12 +100,12 @@ pgConn.
 
 #### `pgConn.isReady()`
 
-Return true if connection ready to receive a query/command.
+Return true if connection is ready to receive a query/command.
 
 #### `pgConn.then(function)`
 
-Run function when the connection is ready. This method will wait for the current query chain to
-finish before running.
+Run function when the connection is ready. This method will wait for any currently running query
+chain to finish.
 
 #### `pgConn.resultErrorField(name)`
 
@@ -134,6 +131,18 @@ be given for that column.
 
 Same as `execParams` but with no params.
 
+#### `pgConn.prepare(name, command, [callback])`
+
+Create a prepared statement named `name`. Parameters are specified in the command the same as
+`execParams`. To specify a type for params use the format `$n::type` where `n` is the parameter
+position and `type` is the sql type; for example `$1::text`, `$2::integer[]`, `$3::jsonb`.  To
+discard a prepared statement run `pgConn.exec('DEALLOCATE "name"')`.
+
+#### `pgConn.execPrepared(name, params, [callback])`
+
+The same as `execParams` except the prepared statment name, from `prepare`, is given instead of the
+command.
+
 #### `escaped = pgConn.escapeLiteral(string)`
 
 Returns an escaped version of `string` including surrounding with single quotes. The escaping makes
@@ -154,6 +163,16 @@ var dbStream = pgConn.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv) 
 dbStream.write('123,"name","address"\n');
 dbStream.end();
 ```
+
+### Not implemented
+
+* `PQdescribePrepared`
+* `PQdescribePortal`
+* `PQgetCopyData`
+* Binary format -- for sending and receiving fields as binary data instead of text.
+* Retrieving Query Results Row-By-Row. Use cursors instead.
+* Asynchronous Notification -- LISTEN, UNLISTEN, NOTIFY
+
 
 ## Testing / Developing
 

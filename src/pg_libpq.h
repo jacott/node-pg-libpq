@@ -26,6 +26,8 @@ class Conn : public node::ObjectWrap {
   static NAN_METHOD(connectDB);
   static NAN_METHOD(finish);
   static NAN_METHOD(execParams);
+  static NAN_METHOD(prepare);
+  static NAN_METHOD(execPrepared);
   static NAN_METHOD(copyFromStream);
   static NAN_METHOD(putCopyData);
   static NAN_METHOD(putCopyEnd);
