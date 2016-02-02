@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+
 #define PGLIBPQ_STATE_ABORT -2
 #define PGLIBPQ_STATE_INIT -1
 #define PGLIBPQ_STATE_CLOSED 0
@@ -93,7 +94,7 @@ NAN_METHOD(Conn::escapeLiteral) {
   Conn* conn = THIS();
 
   char *str = Conn::newUtf8String(args[0]);
-  uint len = Local<String>::Cast(args[0])->Length();
+  unsigned int len = Local<String>::Cast(args[0])->Length();
   char* res = PQescapeLiteral(conn->pq, str, len);
   if (res) {
     Local<String> jsres = NanNew<String>(res);

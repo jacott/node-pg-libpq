@@ -68,7 +68,7 @@ void CopyFromStream::queue(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>
 
 class PutCopyData : public PQAsync {
 public:
-  PutCopyData(Conn* conn, uint dataLength, char *data, NanCallback* callback) :
+  PutCopyData(Conn* conn, unsigned int dataLength, char *data, NanCallback* callback) :
     PQAsync(conn, callback), dataLength(dataLength), data(data) {}
 
   virtual Handle<Value> buildResult() {
@@ -86,7 +86,7 @@ public:
 
 void CopyFromStream::putCopyData(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args) {
   char *str = Conn::newUtf8String(args[0]);
-  uint len = Local<String>::Cast(args[0])->Length();
+  unsigned int len = Local<String>::Cast(args[0])->Length();
   PQAsync* async = new PutCopyData(conn, len, str, new NanCallback(args[1].As<v8::Function>()));
   NanAsyncQueueWorker(async);
 }
