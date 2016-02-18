@@ -15,18 +15,18 @@
 
 #define ASSERT_STATE(conn, expect)                              \
   if(conn->state != PGLIBPQ_STATE_ ## expect) {                 \
-    NanThrowError("connection not in " #expect " state");       \
+    Nan::ThrowError("connection not in " #expect " state");     \
     return;                                                     \
   }
 
 #define MAP_COMMAND(method, queue)              \
   NAN_METHOD(method) {                          \
-    NanScope();                                 \
+    Nan::HandleScope();                         \
     Conn* self = THIS();                        \
     ASSERT_STATE(self, READY);                  \
     self->state = PGLIBPQ_STATE_BUSY;           \
-    queue(self, args);                          \
-    NanReturnUndefined();                       \
+    queue(self, info);                          \
+    info.GetReturnValue().SetUndefined();       \
   }
 
 
@@ -63,7 +63,7 @@ char* Conn::newUtf8String(Handle<Value> from) {
 }
 
 char** Conn::newUtf8StringArray(Handle<Array> params) {
-  NanScope();
+  Nan::HandleScope();
 
   int len = params->Length();
 
@@ -89,40 +89,40 @@ void Conn::deleteUtf8StringArray(char** array, int length) {
 }
 
 NAN_METHOD(Conn::escapeLiteral) {
-  NanScope();
+  Nan::HandleScope();
 
   Conn* conn = THIS();
 
-  char *str = Conn::newUtf8String(args[0]);
-  unsigned int len = Local<String>::Cast(args[0])->Length();
+  char *str = Conn::newUtf8String(info[0]);
+  unsigned int len = Local<String>::Cast(info[0])->Length();
   char* res = PQescapeLiteral(conn->pq, str, len);
   if (res) {
-    Local<String> jsres = NanNew<String>(res);
+    Nan::MaybeLocal<String> jsres = Nan::New<String>(res);
     PQfreemem(res);
-    NanReturnValue(jsres);
+    info.GetReturnValue().Set(jsres.ToLocalChecked());
   } else {
-    NanThrowError(PQerrorMessage(conn->pq));
+    Nan::ThrowError(PQerrorMessage(conn->pq));
   }
 }
 
 NAN_METHOD(Conn::resultErrorField) {
-  NanScope();
+  Nan::HandleScope();
 
   Conn* conn = THIS();
-  char* res = PQresultErrorField(conn->result, Local<Number>::Cast(args[0])->Value());
+  char* res = PQresultErrorField(conn->result, Local<Number>::Cast(info[0])->Value());
   if (res)
-    NanReturnValue(NanNew<String>(res));
+    info.GetReturnValue().Set(Nan::New<String>(res).ToLocalChecked());
   else
-    NanReturnUndefined();
+    info.GetReturnValue().SetUndefined();
 }
 
 NAN_METHOD(Conn::setTypeConverter) {
-  NanScope();
+  Nan::HandleScope();
 
   Conn* self = THIS();
   if (self->typeConverter)
     delete self->typeConverter;
-  self->typeConverter = new NanCallback(args[0].As<v8::Function>());
+  self->typeConverter = new Nan::Callback(info[0].As<v8::Function>());
 }
 
 void Conn::setResult(PGresult* newResult) {
@@ -132,8 +132,8 @@ void Conn::setResult(PGresult* newResult) {
   result = newResult;
 }
 
-PQAsync::PQAsync(Conn *conn, NanCallback* callback) :
-  NanAsyncWorker(callback), conn(conn),
+PQAsync::PQAsync(Conn *conn, Nan::Callback* callback) :
+  Nan::AsyncWorker(callback), conn(conn),
   result(NULL), colData(NULL), nextAction(NULL) {
   cmdTuples = rowCount = colCount = 0;
   conn->pqRef();
@@ -183,13 +183,13 @@ void PQAsync::WorkComplete() {
   conn->setResult(result);
   if (conn->state == PGLIBPQ_STATE_BUSY)
     conn->state = PGLIBPQ_STATE_READY;
-  NanAsyncWorker::WorkComplete();
+  Nan::AsyncWorker::WorkComplete();
   if (conn->state == PGLIBPQ_STATE_ABORT) {
     cleanup(conn);
   }
 }
 
-ConnectDB::ConnectDB(Conn* conn, char* params, NanCallback* callback)
+ConnectDB::ConnectDB(Conn* conn, char* params, Nan::Callback* callback)
   : PQAsync(conn, callback), params(params) {}
 
 ConnectDB::~ConnectDB() {
@@ -206,28 +206,28 @@ void ConnectDB::Execute() {
 }
 
 NAN_METHOD(Conn::create) {
-  NanScope();
+  Nan::HandleScope();
 
   Conn* conn = new Conn();
   conn->state = PGLIBPQ_STATE_INIT;
   conn->copy_inprogress = false;
   conn->result = NULL;
   conn->typeConverter = NULL;
-  conn->Wrap(args.This());
+  conn->Wrap(info.This());
 
-  NanReturnValue(args.This());
+  info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(Conn::connectDB) {
-  NanScope();
+  Nan::HandleScope();
 
   Conn* self = THIS();
   ASSERT_STATE(self, INIT);
   self->state = PGLIBPQ_STATE_BUSY;
-  ConnectDB* async = new ConnectDB(self, newUtf8String(args[0]),
-                                   new NanCallback(args[1].As<v8::Function>()));
-  NanAsyncQueueWorker(async);
-  NanReturnUndefined();
+  ConnectDB* async = new ConnectDB(self, newUtf8String(info[0]),
+                                   new Nan::Callback(info[1].As<v8::Function>()));
+  Nan::AsyncQueueWorker(async);
+  info.GetReturnValue().SetUndefined();
 }
 
 char* cancel(Conn* conn) {
@@ -248,15 +248,15 @@ char* cancel(Conn* conn) {
 }
 
 NAN_METHOD(Conn::isReady) {
-  NanScope();
+  Nan::HandleScope();
 
   Conn* conn = THIS();
-  NanReturnValue(NanNew<v8::Boolean>(conn->state == PGLIBPQ_STATE_READY &&
-                                     ! conn->copy_inprogress));
+  info.GetReturnValue().Set(Nan::New<v8::Boolean>(conn->state == PGLIBPQ_STATE_READY &&
+                                                  ! conn->copy_inprogress));
 }
 
 NAN_METHOD(Conn::finish) {
-  NanScope();
+  Nan::HandleScope();
 
   Conn* conn = THIS();
 
@@ -270,7 +270,7 @@ NAN_METHOD(Conn::finish) {
     cleanup(conn);
   }
 
-  NanReturnUndefined();
+  info.GetReturnValue().SetUndefined();
 }
 
 MAP_COMMAND(Conn::execParams, ExecParams::queue)
@@ -281,10 +281,10 @@ MAP_COMMAND(Conn::putCopyData, CopyFromStream::putCopyData)
 MAP_COMMAND(Conn::putCopyEnd, CopyFromStream::putCopyEnd)
 
 void PQAsync::HandleOKCallback() {
-  NanScope();
+  Nan::HandleScope();
 
   Local<Value> cbArgs[] = {
-    NanNull(),
+    Nan::Null(),
     buildResult(),
   };
 
@@ -295,28 +295,28 @@ Handle<Value> PQAsync::buildResult() {
   PGresult* result = this->result;
   ExecStatusType resultType = PQresultStatus(result);
   if (resultType == PGRES_COMMAND_OK)
-    return NanNew<Number>(cmdTuples);
+    return Nan::New<Number>(cmdTuples);
   else {
-    NanCallback& typeConverter = *conn->typeConverter;
+    Nan::Callback& typeConverter = *conn->typeConverter;
     Local<Value> convArgs[2];
 
     int rCount = rowCount;
-    Handle<Array> rows = NanNew<Array>(rCount);
+    Handle<Array> rows = Nan::New<Array>(rCount);
 
     int cCount = colCount;
     ColumnData* cd = colData;
-    Local<String> colNames[cCount];
+    Nan::MaybeLocal<String> colNames[cCount];
     for(int ci = 0; ci < cCount; ++ci) {
-      colNames[ci] = NanNew<String>(cd[ci].name);
+      colNames[ci] = Nan::New<String>(cd[ci].name);
     }
 
     for (int ri = 0; ri < rCount; ++ri) {
-      Handle<Object> row = NanNew<Object>();
+      Handle<Object> row = Nan::New<Object>();
       for (int ci = 0; ci < cCount; ++ci) {
         if (! PQgetisnull(result, ri, ci)) {
-          convArgs[0] = NanNew<Number>(cd[ci].type);
-          convArgs[1] = NanNew<String>(PQgetvalue(result, ri, ci));
-          row->Set(colNames[ci], typeConverter.Call(2, convArgs));
+          convArgs[0] = Nan::New<Number>(cd[ci].type);
+          convArgs[1] = Nan::New<String>(PQgetvalue(result, ri, ci)).ToLocalChecked();
+          Nan::Set(row, colNames[ci].ToLocalChecked(), typeConverter.Call(2, convArgs));
         }
       }
       rows->Set(ri, row);
@@ -326,25 +326,26 @@ Handle<Value> PQAsync::buildResult() {
 }
 
 
-void InitAll(Handle<Object> exports) {
-  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(Conn::create);
-  tpl->SetClassName(NanNew("PGLibPQ"));
+NAN_MODULE_INIT(InitAll) {
+  Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(Conn::create);
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
+  tpl->SetClassName(Nan::New("PGLibPQ").ToLocalChecked());
 
-  NODE_SET_PROTOTYPE_METHOD(tpl, "connectDB", Conn::connectDB);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "finish", Conn::finish);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "execParams", Conn::execParams);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "prepare", Conn::prepare);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "execPrepared", Conn::execPrepared);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "copyFromStream", Conn::copyFromStream);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "putCopyData", Conn::putCopyData);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "putCopyEnd", Conn::putCopyEnd);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "resultErrorField", Conn::resultErrorField);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "setTypeConverter", Conn::setTypeConverter);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "isReady", Conn::isReady);
-  NODE_SET_PROTOTYPE_METHOD(tpl, "escapeLiteral", Conn::escapeLiteral);
+  Nan::SetPrototypeMethod(tpl, "connectDB", Conn::connectDB);
+  Nan::SetPrototypeMethod(tpl, "finish", Conn::finish);
+  Nan::SetPrototypeMethod(tpl, "execParams", Conn::execParams);
+  Nan::SetPrototypeMethod(tpl, "prepare", Conn::prepare);
+  Nan::SetPrototypeMethod(tpl, "execPrepared", Conn::execPrepared);
+  Nan::SetPrototypeMethod(tpl, "copyFromStream", Conn::copyFromStream);
+  Nan::SetPrototypeMethod(tpl, "putCopyData", Conn::putCopyData);
+  Nan::SetPrototypeMethod(tpl, "putCopyEnd", Conn::putCopyEnd);
+  Nan::SetPrototypeMethod(tpl, "resultErrorField", Conn::resultErrorField);
+  Nan::SetPrototypeMethod(tpl, "setTypeConverter", Conn::setTypeConverter);
+  Nan::SetPrototypeMethod(tpl, "isReady", Conn::isReady);
+  Nan::SetPrototypeMethod(tpl, "escapeLiteral", Conn::escapeLiteral);
 
-  exports->Set(NanNew<String>("PGLibPQ"), tpl->GetFunction());
+  Nan::Set(target, Nan::New("PGLibPQ").ToLocalChecked(),
+           Nan::GetFunction(tpl).ToLocalChecked());
 }
 
 NODE_MODULE(addon, InitAll)

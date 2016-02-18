@@ -3,7 +3,7 @@
 
 #include "pg_libpq.h"
 
-#define ASYNC_COMMAND(name) static void name(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args)
+#define ASYNC_COMMAND(name) static void name(Conn* conn, const Nan::FunctionCallbackInfo<v8::Value>& args)
 
 class ExecParams;
 
@@ -17,11 +17,11 @@ class ExecParamsResultHandler {
 
 class ExecParams : public PQAsync {
  public:
-  ExecParams(Conn* conn, char* command, int paramsLen, char** params, NanCallback* callback);
+  ExecParams(Conn* conn, char* command, int paramsLen, char** params, Nan::Callback* callback);
   ~ExecParams();
   void Execute();
-  static ExecParams* newInstance(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void queue(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args);
+  static ExecParams* newInstance(Conn* conn, const Nan::FunctionCallbackInfo<v8::Value>& args);
+  static void queue(Conn* conn, const Nan::FunctionCallbackInfo<v8::Value>& args);
   virtual Handle<Value> buildResult() {
     return resultHandler->buildResult();
   }
@@ -45,9 +45,9 @@ class PreparedStatement {
 
 class CopyFromStream {
  public:
-  static void queue(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void putCopyData(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void putCopyEnd(Conn* conn, const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void queue(Conn* conn, const Nan::FunctionCallbackInfo<v8::Value>& args);
+  static void putCopyData(Conn* conn, const Nan::FunctionCallbackInfo<v8::Value>& args);
+  static void putCopyEnd(Conn* conn, const Nan::FunctionCallbackInfo<v8::Value>& args);
 };
 
 #endif

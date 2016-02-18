@@ -49,10 +49,10 @@ class Conn : public node::ObjectWrap {
   bool copy_inprogress;
   PGconn* pq;
   PGresult* result;
-  NanCallback* typeConverter;
+  Nan::Callback* typeConverter;
 };
 
-#define THIS() ObjectWrap::Unwrap<Conn>(args.This())
+#define THIS() ObjectWrap::Unwrap<Conn>(info.This())
 
 struct ColumnData {
   char* name;
@@ -60,9 +60,9 @@ struct ColumnData {
   int mod;
 };
 
-class PQAsync : public NanAsyncWorker {
+class PQAsync : public Nan::AsyncWorker {
  public:
-  PQAsync(Conn* conn, NanCallback* callback);
+  PQAsync(Conn* conn, Nan::Callback* callback);
   ~PQAsync();
   void setResult(PGresult* value);
   void WorkComplete();
@@ -82,7 +82,7 @@ class PQAsync : public NanAsyncWorker {
 
 class ConnectDB : public PQAsync {
  public:
-  ConnectDB(Conn* conn, char* params, NanCallback* callback);
+  ConnectDB(Conn* conn, char* params, Nan::Callback* callback);
   ~ConnectDB();
   void Execute();
 
