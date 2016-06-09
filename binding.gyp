@@ -13,7 +13,20 @@
         '<!@(<(pgconfig) --includedir)',
         "<!(node -e \"require('nan')\")"
       ] ,
-      'libraries' : ['-lpq -L<!@(<(pgconfig) --libdir)']
+      'conditions' : [
+        ['OS=="win"', {
+          'libraries' : ['libpq.lib'],
+          'msvs_settings': {
+            'VCLinkerTool' : {
+              'AdditionalLibraryDirectories' : [
+                '<!@(<(pgconfig) --libdir)\\'
+              ]
+            },
+          }
+        }, { # OS!="win"
+             'libraries' : ['-lpq -L<!@(<(pgconfig) --libdir)']
+           }]
+      ]
     }
   ]
 }
