@@ -56,7 +56,7 @@ char* Conn::getErrorMessage() {
 
 char* Conn::newUtf8String(Handle<Value> from) {
   v8::Local<v8::String> toStr = from->ToString();
-  int size = toStr->Utf8Length();
+  const int size = toStr->Utf8Length();
   char* buf = new char[size + 1];
   toStr->WriteUtf8(buf);
   return buf;
@@ -65,7 +65,7 @@ char* Conn::newUtf8String(Handle<Value> from) {
 char** Conn::newUtf8StringArray(Handle<Array> params) {
   Nan::HandleScope();
 
-  int len = params->Length();
+  const int len = params->Length();
 
   char** res = new char*[len];
 
@@ -91,10 +91,10 @@ void Conn::deleteUtf8StringArray(char** array, int length) {
 NAN_METHOD(Conn::escapeLiteral) {
   Nan::HandleScope();
 
-  Conn* conn = THIS();
+  const Conn* conn = THIS();
 
-  char *str = Conn::newUtf8String(info[0]);
-  unsigned int len = Local<String>::Cast(info[0])->Length();
+  const char *str = Conn::newUtf8String(info[0]);
+  const unsigned int len = Local<String>::Cast(info[0])->Length();
   char* res = PQescapeLiteral(conn->pq, str, len);
   if (res) {
     Nan::MaybeLocal<String> jsres = Nan::New<String>(res);
@@ -108,8 +108,8 @@ NAN_METHOD(Conn::escapeLiteral) {
 NAN_METHOD(Conn::resultErrorField) {
   Nan::HandleScope();
 
-  Conn* conn = THIS();
-  char* res = PQresultErrorField(conn->result, Local<Number>::Cast(info[0])->Value());
+  const Conn* conn = THIS();
+  const char* res = PQresultErrorField(conn->result, Local<Number>::Cast(info[0])->Value());
   if (res)
     info.GetReturnValue().Set(Nan::New<String>(res).ToLocalChecked());
   else
@@ -164,7 +164,7 @@ void PQAsync::setResult(PGresult* value) {
   }
   default: {
     rowCount = PQntuples(value);
-    int cCount = colCount = PQnfields(value);
+    const int cCount = colCount = PQnfields(value);
     colData = (ColumnData*) malloc(sizeof(ColumnData) * cCount);
     for(int col = 0; col < cCount; ++col) {
       ColumnData& cd = colData[col];
@@ -199,9 +199,7 @@ ConnectDB::~ConnectDB() {
 void ConnectDB::Execute() {
   PGconn* pq = conn->pq = PQconnectdb(params);
 
-  ConnStatusType status = PQstatus(pq);
-
-  if (status != CONNECTION_OK)
+  if (PQstatus(pq) != CONNECTION_OK)
     SetErrorMessage(PQerrorMessage(pq));
 }
 
@@ -235,7 +233,7 @@ char* cancel(Conn* conn) {
   PGcancel* handle = PQgetCancel(conn->pq);
   if (handle) {
     char* errbuf=(char*)malloc(256);
-    int success = PQcancel(handle, errbuf, 256);
+    const int success = PQcancel(handle, errbuf, 256);
     PQfreeCancel(handle);
 
     if (success ||  *errbuf == '\0') {
@@ -250,7 +248,7 @@ char* cancel(Conn* conn) {
 NAN_METHOD(Conn::isReady) {
   Nan::HandleScope();
 
-  Conn* conn = THIS();
+  const Conn* conn = THIS();
   info.GetReturnValue().Set(Nan::New<v8::Boolean>(conn->state == PGLIBPQ_STATE_READY &&
                                                   ! conn->copy_inprogress));
 }
@@ -297,18 +295,13 @@ Handle<Value> PQAsync::buildResult() {
   if (resultType == PGRES_COMMAND_OK)
     return Nan::New<Number>(cmdTuples);
   else {
-    Nan::Callback& typeConverter = *conn->typeConverter;
+    const Nan::Callback& typeConverter = *conn->typeConverter;
+    const int rCount = rowCount;
+    const int cCount = colCount;
+    const ColumnData* cd = colData;
+
     Local<Value> convArgs[2];
-
-    int rCount = rowCount;
     Handle<Array> rows = Nan::New<Array>(rCount);
-
-    int cCount = colCount;
-    ColumnData* cd = colData;
-    Nan::MaybeLocal<String> colNames[cCount];
-    for(int ci = 0; ci < cCount; ++ci) {
-      colNames[ci] = Nan::New<String>(cd[ci].name);
-    }
 
     for (int ri = 0; ri < rCount; ++ri) {
       Handle<Object> row = Nan::New<Object>();
@@ -316,7 +309,7 @@ Handle<Value> PQAsync::buildResult() {
         if (! PQgetisnull(result, ri, ci)) {
           convArgs[0] = Nan::New<Number>(cd[ci].type);
           convArgs[1] = Nan::New<String>(PQgetvalue(result, ri, ci)).ToLocalChecked();
-          Nan::Set(row, colNames[ci].ToLocalChecked(), typeConverter.Call(2, convArgs));
+          Nan::Set(row, Nan::New<String>(cd[ci].name).ToLocalChecked(), typeConverter.Call(2, convArgs));
         }
       }
       rows->Set(ri, row);
