@@ -48,16 +48,15 @@ describe('crud', function() {
   });
 
   it('should run execs consecutively', function (done) {
-    var rowsLength;
     pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
                   [1, 'one', {one: 1}]);
-    pg.exec('SELECT 1 FROM node_pg_test')
-      .then(function (rows) {
-        rowsLength = rows.length;
-      })
-      .catch(done);
+    pg.exec('SELECT 1 FROM node_pg_test');
 
-    pg.then(function () {
+    pg.then(function (rows) {
+      return rows.length;
+    }).catch(done);
+
+    pg.then(function (rowsLength) {
       assert.equal(rowsLength, 1);
       done();
     }).
