@@ -16,7 +16,7 @@ of node may need a Promise npm to be installed to use promises.
 
 ## Install
 
-You need libpq installed and the `pg_config` program should be in your path.  You also need
+You need libpq installed and the `pg_config` program should be in your path.  You may also need
 [node-gyp](https://github.com/TooTallNate/node-gyp) installed.
 
 ```sh
@@ -26,9 +26,10 @@ $ npm i node-pg-libpq
 ## Use
 
 ```js
-var Libpq = require('pg-libpq');
-new Libpq(function (err, pgConn) {
-    pgConn.exec("SELECT 'world' AS hello", function(err, rows) {
+const Libpq = require('pg-libpq');
+
+new Libpq((err, pgConn) => {
+    pgConn.exec("SELECT 'world' AS hello", (err, rows) => {
        console.log(rows);
        pgConn.finish();
     });
@@ -38,11 +39,11 @@ new Libpq(function (err, pgConn) {
 or with promises
 
 ```js
-var Libpq = require('pg-libpq');
-var pgConn = new Libpq;
-pgConn.then(function () {
-    return pgConn.exec("SELECT 'world' AS hello");
-}).then(function (rows) {
+const Libpq = require('pg-libpq');
+
+const pgConn = new Libpq;
+pgConn.exec("SELECT 'world' AS hello")
+ .then(rows => {
     console.log(rows);
     pgConn.finish();
 });
@@ -60,9 +61,10 @@ This package does not include a connection pool. You can use
 [generic-pool](https://www.npmjs.com/package/generic-pool) or similar like so:
 
 ```js
-var Libpq = require('pg-libpq');
-var poolModule = require('generic-pool');
-var pool = poolModule.Pool({
+const Libpq = require('pg-libpq');
+const poolModule = require('generic-pool');
+
+const pool = poolModule.Pool({
   name: 'PostgreSQL',
   create: function(callback) {
     new Libpq("postgresql://localhost/testdb", callback);
@@ -82,9 +84,6 @@ details.
 
 If a callback function is supplied it is called with the database connection `pgConn` if successful
 otherwise `err` explains why the connection failed.
-
-If no callback is supplied the instance method [`pgConn.then(function)`](#pgconnthenfunction) should
-be used.
 
 #### `pgConn.finish()`
 
@@ -189,7 +188,7 @@ tests.
 
 The MIT License (MIT)
 
-Copyright (c) 2015 Geoff Jacobsen <geoffjacobsen@gmail.com>
+Copyright (c) 2015, 2016 Geoff Jacobsen <geoffjacobsen@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

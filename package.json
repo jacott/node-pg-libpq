@@ -1,7 +1,7 @@
 {
   "name": "pg-libpq",
   "description": "Native, asynchronous, non-blocking interface to PostgreSQL",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "author": "Geoff Jacobsen <geoffjacobsen@gmail.com>",
   "license": "MIT",
   "main": "lib/pg-libpq",
@@ -12,8 +12,8 @@
   "gypfile": true,
   "dependencies": {
     "bindings": "^1.2.1",
-    "nan": "^2.2.0",
-    "pg-types": "^1.10.0"
+    "nan": "^2.3.5",
+    "pg-types": "^1.11.0"
   },
   "scripts": {
     "test": "tools/run-tests"

@@ -3,10 +3,10 @@ var assert = require('assert');
 
 describe('connecting', function() {
 
-  it('connects using defaults', function (done) {
-    new PG(function (err, pg) {
+  it('connects using defaults', done => {
+    new PG((err, pg) => {
       assert.ifError(err);
-      pg.exec("SELECT 1", function (err, res) {
+      pg.exec("SELECT 1", (err, res) => {
         assert.ifError(err);
         assert.equal(res[0]['?column?'], 1);
         pg.finish();
@@ -58,15 +58,14 @@ describe('connecting', function() {
     var other = true;
     var pg = new PG("host=/var/run/postgresql");
     assert.equal(pg.isReady(), false);
-    pg.then(function() {
+    pg.then(() => {
       assert.equal(pg.isReady(), true);
       return pg.exec("SELECT 1 AS b, 'world' as hello");
-
-    }).then(function (result) {
+    }).then(result => {
       assert.equal(JSON.stringify(result), JSON.stringify([{b: 1, hello: 'world'}]));
       return pg.exec("SELECT 2 AS x");
 
-    }).then(function (result) {
+    }).then(result => {
       assert.equal(JSON.stringify(result), JSON.stringify([{x: 2}]));
       assert.equal(pg.isReady(), true);
       pg.finish();

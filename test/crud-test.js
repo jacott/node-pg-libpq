@@ -4,14 +4,8 @@ var assert = require('assert');
 describe('crud', function() {
   var pg;
   before(function (done) {
-    pg = new PG(function(err) {
-      assert.ifError(err);
-      pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar jsonb, baz date)",
-              function (err, count) {
-                assert.ifError(err);
-                done();
-              });
-    });
+    pg = new PG("host=/var/run/postgresql");
+    pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar jsonb, baz date)", done);
   });
 
   after(function () {
@@ -20,16 +14,13 @@ describe('crud', function() {
   });
 
   afterEach(function (done) {
-    pg && pg.exec("truncate node_pg_test", function (err) {
-      done(err);
-    });
+    pg && pg.exec("truncate node_pg_test", done);
   });
 
   it('should count updates and deletes', function(done) {
     pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
-                  [1, 'one', {one: 1}]);
-
-    pg.then(function (count) {
+                  [1, 'one', {one: 1}])
+    .then(function (count) {
       assert.equal(count, 1);
       return pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
                            [2, 'two', {two: 2}]);
@@ -39,9 +30,7 @@ describe('crud', function() {
       return pg.exec('SELECT * FROM node_pg_test');
     }).then(function (rows) {
       assert.equal(rows.length, 2);
-    });
-
-    pg.then(function () {
+    }).then(function () {
       return pg.execParams("UPDATE node_pg_test SET foo = $2, bar = $3 WHERE _id = $1",
                            [1, 'two', {one: 2}]);
     }).then(function (count) {
@@ -57,6 +46,24 @@ describe('crud', function() {
       done();
     }).catch(done);
   });
+
+  it('should run execs consecutively', function (done) {
+    var rowsLength;
+    pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
+                  [1, 'one', {one: 1}]);
+    pg.exec('SELECT 1 FROM node_pg_test')
+      .then(function (rows) {
+        rowsLength = rows.length;
+      })
+      .catch(done);
+
+    pg.then(function () {
+      assert.equal(rowsLength, 1);
+      done();
+    }).
+      catch(done);
+  });
+
 
   it('should return nulls correctly', function (done) {
     pg.execParams("INSERT INTO node_pg_test (_id, foo, bar, baz) VALUES($1,$2,$3,$4)",
