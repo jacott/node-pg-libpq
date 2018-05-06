@@ -1,62 +1,31 @@
-var PG = require('../');
-var assert = require('assert');
+const PG = require('../');
+const assert = require('assert');
 
-describe('connecting', function() {
+describe('connecting', ()=>{
 
-  it('connects using defaults', done => {
-    new PG((err, pg) => {
+  it('connects using defaults', done =>{
+    const pg = new PG(err => {assert.ifError(err)});
+    pg.exec("SELECT 1", (err, res) => {
       assert.ifError(err);
-      pg.exec("SELECT 1", (err, res) => {
-        assert.ifError(err);
-        assert.equal(res[0]['?column?'], 1);
-        pg.finish();
-        done();
-      });
+      assert.equal(res[0]['?column?'], 1);
+      pg.finish();
+      done();
     });
   });
 
-  it('connects using tcp socket', function (done) {
+  it('connects using tcp socket', done =>{
     new PG("host=localhost password=bad")
-      .catch(function (err) {
+      .then(()=>{assert(false, "should have thrown exception");})
+      .catch(err =>{
         assert(/password authentication failed/.test(err.message), err.message);
         done();
       });
   });
 
-  it("should throw error if connection is used in wrong state", function (done) {
-    new PG(function (err, pg) {
-      try {
-        pg.pq.connectDB(function (err) {
-          assert(false, "should not get here");
-        });
-        assert(false, "should have thrown exception");
-      } catch(ex) {
-        assert.equal(ex.message, "connection not in INIT state");
-      }
-      var pq = pg.pq;
-      pg.finish();
-      try {
-        pg.exec("SELECT 1 AS a", function (err) {
-          assert(false, "should not get here");
-        });
-      } catch(ex) {
-        assert.equal(ex.message, "connection is closed");
-      }
-      try {
-        pq.execParams("SELECT 1 AS a", null, function (err) {
-          assert(false, "should not get here");
-        });
-      } catch(ex) {
-        assert.equal(ex.message, "connection not in READY state");
-        done();
-      }
-    });
-  });
-
-  it('connects asynchronously', function(done) {
-    var me = true;
-    var other = true;
-    var pg = new PG("host=/var/run/postgresql");
+  it('connects asynchronously', done =>{
+    let me = true;
+    let other = true;
+    const pg = new PG("host=/var/run/postgresql");
     assert.equal(pg.isReady(), false);
     pg.then(() => {
       assert.equal(pg.isReady(), true);
@@ -74,16 +43,16 @@ describe('connecting', function() {
       other || done();
 
     }).catch(done);
-    var oPg = new PG("host=/var/run/postgresql");
-    oPg.then(function() {
-      return oPg.exec("SELECT 'other' bad bad");
-    }).catch(function (err) {
-      assert(/syntax/.test(err.message));
-      assert.equal(err.sqlState, '42601');
-      assert.equal(oPg.resultErrorField('SEVERITY'), 'ERROR');
-      oPg.finish();
-      other = false;
-      me || done();
-    });
+    const oPg = new PG("host=/var/run/postgresql");
+    oPg
+      .then(()=> oPg.exec("SELECT 'other' bad bad"))
+      .catch(err =>{
+        assert(/syntax/.test(err.message));
+        assert.equal(err.sqlState, '42601');
+        assert.equal(oPg.resultErrorField('SEVERITY'), 'ERROR');
+        oPg.finish();
+        other = false;
+        me || done();
+      });
   });
 });

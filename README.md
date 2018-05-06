@@ -28,11 +28,10 @@ $ npm i node-pg-libpq
 ```js
 const Libpq = require('pg-libpq');
 
-new Libpq((err, pgConn) => {
-    pgConn.exec("SELECT 'world' AS hello", (err, rows) => {
-       console.log(rows);
-       pgConn.finish();
-    });
+const pgConn = new Libpq((err, pgConn) => {});
+pgConn.exec("SELECT 'world' AS hello", (err, rows) => {
+    console.log(rows);
+    pgConn.finish();
 });
 ```
 
@@ -66,10 +65,10 @@ const poolModule = require('generic-pool');
 
 const pool = poolModule.Pool({
   name: 'PostgreSQL',
-  create: function(callback) {
+  create(callback) {
     new Libpq("postgresql://localhost/testdb", callback);
   },
-  destroy: function(pgConn) {
+  destroy(pgConn) {
     pgConn.finish();
   },
   max: 10,
@@ -78,9 +77,8 @@ const pool = poolModule.Pool({
 
 #### `new Libpq([conninfo], [function callback(err, pgConn)])`
 
-Returns a connection (pgConn) to the database. `conninfo` is optional; see [libpq -
-PQconnectdb](http://www.postgresql.org/docs/9.4/interactive/libpq-connect.html) for
-details.
+Returns a connection (pgConn) to the database. `conninfo` is an optional string; see [libpq -
+PQconnectdb](http://www.postgresql.org/docs/9.4/interactive/libpq-connect.html) for details.
 
 If a callback function is supplied it is called with the database connection `pgConn` if successful
 otherwise `err` explains why the connection failed.
@@ -156,8 +154,8 @@ There is no promise version of this command.
 Example:
 
 ```js
-var dbStream = pgConn.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv) ',
-      function (err) {console.log("finished", err)});
+const dbStream = pgConn.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv) ',
+    err =>{console.log("finished", err)});
 
 dbStream.write('123,"name","address"\n');
 dbStream.end();
@@ -188,7 +186,7 @@ tests.
 
 The MIT License (MIT)
 
-Copyright (c) 2015, 2016 Geoff Jacobsen <geoffjacobsen@gmail.com>
+Copyright (c) 2015-2018 Geoff Jacobsen <geoffjacobsen@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

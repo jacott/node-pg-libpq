@@ -1,23 +1,23 @@
-var PG = require('../');
-var assert = require('assert');
+const PG = require('../');
+const assert = require('assert');
 
 describe('return types', function() {
-  var pg;
-  before(function (done) {
-    pg = new PG(function(err) {
+  let pg;
+  before(done =>{
+    pg = new PG(err =>{
       assert.ifError(err);
       done();
     });
   });
 
-  after(function () {
+  after(()=>{
     pg && pg.finish();
     pg = null;
   });
 
 
-  it('should return numbers and strings', function(done) {
-    pg.exec("SELECT 1 AS number, 'text' as string", function (err, result) {
+  it('should return numbers and strings', done =>{
+    pg.exec("SELECT 1 AS number, 'text' as string", (err, result)=>{
       assert.ifError(err);
       assert.equal(result[0].number, 1);
       assert.equal(result[0].string, 'text');
@@ -25,10 +25,10 @@ describe('return types', function() {
     });
   });
 
-  it('should return dates', function(done) {
-    pg.exec("SELECT DATE '2015-06-05' as date", function (err, result) {
+  it('should return dates', done =>{
+    pg.exec("SELECT DATE '2015-06-05' as date", (err, result)=> {
       assert.ifError(err);
-      var actDate = result[0].date;
+      const actDate = result[0].date;
       assert.equal(actDate.getFullYear(), 2015);
       assert.equal(actDate.getMonth()+1, 6);
       assert.equal(actDate.getDate(), 5);
@@ -36,10 +36,10 @@ describe('return types', function() {
     });
   });
 
-  it('should return arrays', function(done) {
-    pg.exec("SELECT ARRAY[1,2,3] as array", function (err, result) {
+  it('should return arrays', done =>{
+    pg.exec("SELECT ARRAY[1,2,3] as array", (err, result)=>{
       assert.ifError(err);
-      var actArray = result[0].array;
+      const actArray = result[0].array;
       assert.equal(actArray[0], 1);
       assert.equal(actArray[1], 2);
       assert.equal(actArray[2], 3);
@@ -48,10 +48,10 @@ describe('return types', function() {
     });
   });
 
-  it('should return objects', function(done) {
-    pg.exec("SELECT '{\"a\": 1, \"b\": [1,2]}'::jsonb as object", function (err, result) {
+  it('should return objects', done =>{
+    pg.exec("SELECT '{\"a\": 1, \"b\": [1,2]}'::jsonb as object", (err, result)=>{
       assert.ifError(err);
-      var actObject = result[0].object;
+      const actObject = result[0].object;
       assert.equal(actObject.a, 1);
       assert.equal(actObject.b[0], 1);
       assert.equal(actObject.b[1], 2);

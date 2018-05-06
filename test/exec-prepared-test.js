@@ -1,28 +1,28 @@
-var PG = require('../');
-var assert = require('assert');
+const PG = require('../');
+const assert = require('assert');
 
-describe('execPrepared', function() {
-  var pg;
-  before(function (done) {
-    pg = new PG(function(err) {
+describe('execPrepared', ()=>{
+  let pg;
+  before(done =>{
+    pg = new PG(err =>{
       assert.ifError(err);
       done();
     });
   });
 
-  after(function () {
+  after(()=>{
     pg && pg.finish();
     pg = null;
   });
 
-  it('should accept numbers and strings', function(done) {
-    pg.prepare("p1", "SELECT $1::integer AS number, $2::text as string").then(function () {
+  it('should accept numbers and strings', done =>{
+    pg.prepare("p1", "SELECT $1::integer AS number, $2::text as string").then(()=>{
       return pg.execPrepared("p1", [1, 'text']);
-    }).then(function (result) {
+    }).then(result =>{
       assert.equal(result[0].number, 1);
       assert.equal(result[0].string, 'text');
       return pg.execPrepared("p1", [4, 'foo']);
-    }).then(function (result) {
+    }).then(result =>{
       assert.equal(result[0].number, 4);
       assert.equal(result[0].string, 'foo');
       done();

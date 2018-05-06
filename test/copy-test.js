@@ -1,33 +1,33 @@
-var PG = require('../');
-var assert = require('assert');
-var fs = require('fs');
+const PG = require('../');
+const assert = require('assert');
+const fs = require('fs');
 
-describe('copy streaming', function() {
-  var pg;
-  beforeEach(function (done) {
-    pg = new PG(function(err) {
+describe('copy streaming', ()=>{
+  let pg;
+  beforeEach(done =>{
+    pg = new PG(err =>{
       assert.ifError(err);
-      pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar date)", function (err, count) {
+      pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar date)",  (err, count)=>{
         assert.ifError(err);
         done();
       });
     });
   });
 
-  afterEach(function () {
+  afterEach(()=>{
     pg && pg.finish();
     pg = null;
   });
 
-  it("can cancel in progress", function (done) {
-    var wasReady;
+  it("can cancel in progress", done =>{
+    let wasReady;
     assert.equal(pg.isReady(), true);
-    var dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', function (err) {
-      assert.equal(wasReady, false);
+    const dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
       assert.equal(err.message, 'connection is closed');
       assert.equal(err.sqlState, '08003');
+      assert.equal(wasReady, false);
       assert.equal(pg.isReady(), false);
-      dbStream.on('error', function (error) {
+      dbStream.on('error', error =>{
         try {
           assert.equal(error, 'connection closed');
           done();
@@ -39,7 +39,7 @@ describe('copy streaming', function() {
     });
     dbStream.write('123,"line 1","2015-02-02"\n');
     assert.equal(pg.isReady(), false);
-    setTimeout(function () {
+    setTimeout(()=>{
       try {
         wasReady = pg.isReady();
         dbStream.write('456,"line 2","2015-02-02"\n');
@@ -50,11 +50,11 @@ describe('copy streaming', function() {
     }, 10);
   });
 
-  it("should handle nesting", function (done) {
-    var dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', function (err) {
+  it("should handle nesting", done =>{
+    const dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
       assert.ifError(err);
       if (! pg) return;
-      var dbStream2 = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', function (err) {
+      const dbStream2 = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
         assert.ifError(err);
         done();
       });
@@ -66,12 +66,12 @@ describe('copy streaming', function() {
     dbStream.end();
   });
 
-  it("should copy from buffer", function (done) {
-    var fromFilename = __filename.replace(/\.js$/, '-from-data.csv');
-    var fromStream = fs.createReadStream(fromFilename);
-    var dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', function (err) {
+  it("should copy from buffer", done =>{
+    const fromFilename = __filename.replace(/\.js$/, '-from-data.csv');
+    const fromStream = fs.createReadStream(fromFilename);
+    const dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
       assert.ifError(err);
-      pg.exec('SELECT * FROM node_pg_test WHERE _id = 2', function (err, rows) {
+      pg.exec('SELECT * FROM node_pg_test WHERE _id = 2',  (err, rows)=>{
         assert.ifError(err);
         assert.equal(rows[0].foo, 'row 2');
         assert.equal(rows[0].bar.getDate(), 2);
@@ -83,7 +83,7 @@ describe('copy streaming', function() {
   });
 });
 
-function failError(err) {
+const failError = err=>{
   assert.ifError(err);
   assert(false, 'expected error');
-}
+};
