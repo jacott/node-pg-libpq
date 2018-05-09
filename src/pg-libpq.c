@@ -50,7 +50,7 @@ void done_empty(napi_env env, napi_status status, Conn* conn, napi_value cb_args
 }
 
 void async_connectDB(napi_env env, Conn* conn) {
-  conn->pq = PQconnectdb((char*)conn->request);
+  conn->pq = PQconnectdb(conn->request);
   if (PQstatus(conn->pq) != CONNECTION_OK) {
     conn->state = PGLIBPQ_STATE_ERROR;
     conn->result = (PGresult*)conn->pq;
@@ -86,7 +86,7 @@ void loadExecArgs(napi_env env, Conn* conn, napi_value cmdv, napi_value paramsv,
 }
 
 void freeExecArgs(napi_env env, Conn* conn) {
-  ExecArgs* args = (ExecArgs*)conn->request;
+  ExecArgs* args = conn->request;
   if (args->cmd != NULL) free(args->cmd);
   if (args->name != NULL) free(args->name);
   char** params = args->params;
@@ -109,7 +109,7 @@ napi_value init_execParams(napi_env env, napi_callback_info info,
 }
 
 void async_execParams(napi_env env, Conn* conn) {
-  ExecArgs* args = (ExecArgs*)conn->request;
+  ExecArgs* args = conn->request;
   if (args->params == NULL)
     conn->result = PQexec(conn->pq, args->cmd);
   else
@@ -134,7 +134,7 @@ napi_value init_prepare(napi_env env, napi_callback_info info,
 }
 
 void async_prepare(napi_env env, Conn* conn) {
-  ExecArgs* args = (ExecArgs*)conn->request;
+  ExecArgs* args = conn->request;
   conn->result = PQprepare(conn->pq, args->name, args->cmd, 0, NULL);
 }
 
@@ -151,7 +151,7 @@ napi_value init_execPrepared(napi_env env, napi_callback_info info,
   return NULL;
 }
 void async_execPrepared(napi_env env, Conn* conn) {
-  ExecArgs* args = (ExecArgs*)conn->request;
+  ExecArgs* args = conn->request;
   conn->result = PQexecPrepared(conn->pq, args->name,
                                 args->paramsLen, (const char* const*)args->params,
                                 NULL, NULL, 0);

@@ -6,19 +6,27 @@ describe('connecting', ()=>{
   it('connects using defaults', done =>{
     const pg = new PG(err => {assert.ifError(err)});
     pg.exec("SELECT 1", (err, res) => {
-      assert.ifError(err);
-      assert.equal(res[0]['?column?'], 1);
-      pg.finish();
-      done();
+      try {
+        assert.ifError(err);
+        assert.equal(res[0]['?column?'], 1);
+        pg.finish();
+        done();
+      } catch(ex) {
+        done(ex);
+      }
     });
   });
 
   it('connects using tcp socket', done =>{
-    new PG("host=localhost password=bad")
+    new PG("host=localhost password=bad sslmode=disable")
       .then(()=>{assert(false, "should have thrown exception");})
       .catch(err =>{
-        assert(/password authentication failed/.test(err.message), err.message);
-        done();
+        try {
+          assert(/password authentication failed/.test(err.message), err.message);
+          done();
+        } catch(ex) {
+          done(ex);
+        }
       });
   });
 
@@ -47,12 +55,16 @@ describe('connecting', ()=>{
     oPg
       .then(()=> oPg.exec("SELECT 'other' bad bad"))
       .catch(err =>{
-        assert(/syntax/.test(err.message));
-        assert.equal(err.sqlState, '42601');
-        assert.equal(oPg.resultErrorField('SEVERITY'), 'ERROR');
-        oPg.finish();
-        other = false;
-        me || done();
+        try {
+          assert(/syntax/.test(err.message));
+          assert.equal(err.sqlState, '42601');
+          assert.equal(oPg.resultErrorField('SEVERITY'), 'ERROR');
+          oPg.finish();
+          other = false;
+          me || done();
+        } catch(ex) {
+          done(ex);
+        }
       });
   });
 });

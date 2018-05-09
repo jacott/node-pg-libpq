@@ -79,7 +79,7 @@ Conn* _getConn(napi_env env, napi_callback_info info) {
   void* obj;
   assertok(napi_unwrap(env, jsthis, &obj));
 
-  return (Conn*)obj;
+  return obj;
 }
 #define getConn() Conn* conn = _getConn(env, info);
 
@@ -141,12 +141,12 @@ napi_value convertResult(napi_env env, Conn* conn) {
 
 
 void async_execute(napi_env env, void* data) {
-  Conn* conn = (Conn*)data;
+  Conn* conn = data;
   conn->execute(env, conn);
 }
 
 void async_complete(napi_env env, napi_status status, void* data) {
-  Conn* conn = (Conn*)data;
+  Conn* conn = data;
   bool isAbort = conn->state == PGLIBPQ_STATE_ABORT;
 
   const napi_value null = getNull();

@@ -4,10 +4,7 @@ const assert = require('assert');
 describe('execPrepared', ()=>{
   let pg;
   before(done =>{
-    pg = new PG(err =>{
-      assert.ifError(err);
-      done();
-    });
+    pg = new PG(done);
   });
 
   after(()=>{
@@ -16,16 +13,15 @@ describe('execPrepared', ()=>{
   });
 
   it('should accept numbers and strings', done =>{
-    pg.prepare("p1", "SELECT $1::integer AS number, $2::text as string").then(()=>{
-      return pg.execPrepared("p1", [1, 'text']);
-    }).then(result =>{
-      assert.equal(result[0].number, 1);
-      assert.equal(result[0].string, 'text');
-      return pg.execPrepared("p1", [4, 'foo']);
-    }).then(result =>{
-      assert.equal(result[0].number, 4);
-      assert.equal(result[0].string, 'foo');
-      done();
-    }).catch(done);
+    pg.prepare("p1", "SELECT $1::integer AS number, $2::text as string")
+      .then(()=> pg.execPrepared("p1", [1, 'text']))
+      .then(result =>{
+        assert.equal(result[0].number, 1);
+        assert.equal(result[0].string, 'text');
+        return pg.execPrepared("p1", [4, 'foo']);
+      }).then(result =>{
+        assert.equal(result[0].number, 4);
+        assert.equal(result[0].string, 'foo');
+      }).then(done, done);
   });
 });

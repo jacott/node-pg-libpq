@@ -6,10 +6,9 @@ describe('copy streaming', ()=>{
   let pg;
   beforeEach(done =>{
     pg = new PG(err =>{
-      assert.ifError(err);
+      if (err) done(err);
       pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar date)",  (err, count)=>{
-        assert.ifError(err);
-        done();
+        done(err);
       });
     });
   });
@@ -55,8 +54,7 @@ describe('copy streaming', ()=>{
       assert.ifError(err);
       if (! pg) return;
       const dbStream2 = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
-        assert.ifError(err);
-        done();
+        done(err);
       });
       dbStream2.write('123,"name","2015-03-03"\n');
       dbStream2.end();
@@ -72,10 +70,14 @@ describe('copy streaming', ()=>{
     const dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
       assert.ifError(err);
       pg.exec('SELECT * FROM node_pg_test WHERE _id = 2',  (err, rows)=>{
-        assert.ifError(err);
-        assert.equal(rows[0].foo, 'row 2');
-        assert.equal(rows[0].bar.getDate(), 2);
-        done();
+        try {
+          assert.ifError(err);
+          assert.equal(rows[0].foo, 'row 2');
+          assert.equal(rows[0].bar.getDate(), 2);
+          done();
+        } catch(ex) {
+          done(ex);
+        }
       });
     });
     fromStream.on('error', failError);

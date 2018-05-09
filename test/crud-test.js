@@ -3,9 +3,9 @@ const assert = require('assert');
 
 describe('crud', ()=>{
   let pg;
-  before(done =>{
+  before(async ()=>{
     pg = new PG("host=/var/run/postgresql");
-    pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar jsonb, baz date)", done);
+    await pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar jsonb, baz date)");
   });
 
   after(()=>{
@@ -13,76 +13,57 @@ describe('crud', ()=>{
     pg = null;
   });
 
-  afterEach(done =>{
-    pg && pg.exec("truncate node_pg_test", done);
+  afterEach(async ()=>{
+    pg && await pg.exec("truncate node_pg_test");
   });
 
-  it('should count updates and deletes', done =>{
-    pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
-                  [1, 'one', {one: 1}])
-    .then(count =>{
-      assert.equal(count, 1);
-      return pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
-                           [2, 'two', {two: 2}]);
+  it('should count updates and deletes', async ()=>{
+    assert.equal(
+      await pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
+                          [1, 'one', {one: 1}]), 1);
 
-    }).then(count =>{
-      assert.equal(count, 1);
-      return pg.exec('SELECT * FROM node_pg_test');
-    }).then(rows =>{
-      assert.equal(rows.length, 2);
-    }).then(()=>{
-      return pg.execParams("UPDATE node_pg_test SET foo = $2, bar = $3 WHERE _id = $1",
-                           [1, 'two', {one: 2}]);
-    }).then(count =>{
-      assert.equal(count, 1);
-      return pg.execParams("UPDATE node_pg_test SET bar = $2 WHERE foo = $1",
-                           ['two', null]);
-    }).then(count =>{
-      assert.equal(count, 2);
+    assert.equal(
+      await pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
+                          [2, 'two', {two: 2}]), 1);
 
-      return pg.exec("DELETE FROM node_pg_test WHERE bar IS NULL");
-    }).then(count =>{
-      assert.equal(count, 2);
-      done();
-    }).catch(done);
+    assert.equal((await pg.exec('SELECT * FROM node_pg_test')).length, 2);
+
+    assert.equal(
+      await pg.execParams("UPDATE node_pg_test SET foo = $2, bar = $3 WHERE _id = $1",
+                          [1, 'two', {one: 2}]), 1);
+
+    assert.equal(
+      await pg.execParams("UPDATE node_pg_test SET bar = $2 WHERE foo = $1",
+                          ['two', null]), 2);
+
+    assert.equal(
+      await pg.exec("DELETE FROM node_pg_test WHERE bar IS NULL"), 2);
   });
 
-  it('should run execs consecutively', done =>{
+  it('should run execs consecutively', async ()=>{
     pg.execParams("INSERT INTO node_pg_test (_id, foo, bar) VALUES($1,$2,$3)",
                   [1, 'one', {one: 1}]);
-    pg.exec('SELECT 1 FROM node_pg_test')
-      .then(rows => rows.length)
-      .catch(done)
-      .then(rowsLength =>{
-        assert.equal(rowsLength, 1);
-        done();
-      })
-      .catch(done);
+    const rows = await pg.exec('SELECT 1 FROM node_pg_test');
+    assert.equal(rows.length, 1);
   });
 
+  it('should return nulls correctly', async ()=>{
+    assert.equal(
+      await pg.execParams("INSERT INTO node_pg_test (_id, foo, bar, baz) VALUES($1,$2,$3,$4)",
+                    [null, null, null, null]), 1);
 
-  it('should return nulls correctly', done =>{
-    pg.execParams("INSERT INTO node_pg_test (_id, foo, bar, baz) VALUES($1,$2,$3,$4)",
-                  [null, null, null, null])
-      .then(count =>{
-        assert.equal(count, 1);
+    assert.equal(
+      await pg.execParams("INSERT INTO node_pg_test (_id, foo, bar, baz) VALUES($1,$2,$3,$4)",
+                          [1, 'x', {bar: [2]}, new Date(2015, 0, 2)]), 1);
 
-        return pg.execParams("INSERT INTO node_pg_test (_id, foo, bar, baz) VALUES($1,$2,$3,$4)",
-                             [1, 'x', {bar: [2]}, new Date(2015, 0, 2)]);
-      }).then(count =>{
-        assert.equal(count, 1);
+    const results = await pg.exec('SELECT * FROM node_pg_test');
+    let result = results[0];
+    assert.deepEqual(result, {});
 
-        return pg.exec('SELECT * FROM node_pg_test');
-      }).then(results =>{
-        let result = results[0];
-        assert.deepEqual(result, {});
-
-        result = results[1];
-        assert.equal(result._id, 1);
-        assert.equal(result.foo, 'x');
-        assert.equal(result.bar.bar[0], 2);
-        assert.equal(result.baz.getFullYear(), 2015);
-        done();
-      }).catch(done);
+    result = results[1];
+    assert.equal(result._id, 1);
+    assert.equal(result.foo, 'x');
+    assert.equal(result.bar.bar[0], 2);
+    assert.equal(result.baz.getFullYear(), 2015);
   });
 });

@@ -4,10 +4,7 @@ const assert = require('assert');
 describe('escaping', ()=>{
   let pg;
   before(done =>{
-    pg = new PG(err =>{
-      assert.ifError(err);
-      done();
-    });
+    pg = new PG(done);
   });
 
   after(()=>{

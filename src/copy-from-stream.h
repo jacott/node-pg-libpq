@@ -27,13 +27,13 @@ napi_value init_putCopyData(napi_env env, napi_callback_info info,
 }
 
 void async_putCopyData(napi_env env, Conn* conn) {
-  PutData *putData = (PutData*)conn->request;
-  if (PQputCopyData(conn->pq, (char*)putData->data, putData->length) == -1)
+  PutData *putData = conn->request;
+  if (PQputCopyData(conn->pq, putData->data, putData->length) == -1)
     putData->error = PQerrorMessage(conn->pq);
 }
 
 void done_putCopyData(napi_env env, napi_status status, Conn* conn, napi_value cb_args[]) {
-  PutData* putData = (PutData*)conn->request;
+  PutData* putData = conn->request;
   if (putData->ref != NULL) napi_delete_reference(env, putData->ref);
   if (putData->error != NULL) cb_args[0] = makeError(putData->error);
 }
@@ -51,8 +51,8 @@ napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
 }
 
 void async_putCopyEnd(napi_env env, Conn* conn) {
-  PutData* putData = (PutData*)conn->request;
-  if (PQputCopyEnd(conn->pq, (char*)putData->data) == -1)
+  PutData* putData = conn->request;
+  if (PQputCopyEnd(conn->pq, putData->data) == -1)
     putData->error = PQerrorMessage(conn->pq);
 }
 
