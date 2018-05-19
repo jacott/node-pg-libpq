@@ -1,5 +1,5 @@
 napi_value init_copyFromStream(napi_env env, napi_callback_info info,
-                          Conn* conn, size_t argc, napi_value args[]) {
+                               Conn* conn, size_t argc, napi_value args[]) {
   conn->copy_inprogress = true;
   return init_execParams(env, info, conn, argc, args);
 }
@@ -15,13 +15,13 @@ typedef struct {
 } PutData;
 
 napi_value init_putCopyData(napi_env env, napi_callback_info info,
-                          Conn* conn, size_t argc, napi_value args[]) {
+                            Conn* conn, size_t argc, napi_value args[]) {
   PutData *putData = calloc(1, sizeof(PutData));
   assertok(napi_create_reference(env, args[0], 1, &putData->ref));
   assertok(napi_get_buffer_info(env,
-                                     args[0],
-                                     &putData->data,
-                                     &putData->length));
+                                args[0],
+                                &putData->data,
+                                &putData->length));
   conn->request = putData;
   return NULL;
 }
@@ -42,7 +42,7 @@ defAsync(putCopyData, 2)
 
 
 napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
-                          Conn* conn, size_t argc, napi_value args[]) {
+                           Conn* conn, size_t argc, napi_value args[]) {
   PutData *putData = calloc(1, sizeof(PutData));
   if (argc > 1 && jsType(args[0]) == napi_string)
     putData->data = getString(args[0]);

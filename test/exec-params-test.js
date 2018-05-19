@@ -31,7 +31,7 @@ describe('execParams', ()=>{
 
   it('should accept arrays', done =>{
     const array = [1,2,3];
-    pg.execParams("SELECT $1::integer[] as array", [pg.sqlArray(array)]).then(result =>{
+    pg.execParams("SELECT $1::integer[] as array", [PG.sqlArray(array)]).then(result =>{
       const actArray = result[0].array;
       assert.equal(actArray[0], 1);
       assert.equal(actArray[1], 2);

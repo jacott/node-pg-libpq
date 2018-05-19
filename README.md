@@ -1,23 +1,16 @@
 # node-pg-libpq
 
-Native, asynchronous, non-blocking interface to PostgreSQL through
+Native, interface to PostgreSQL through
 [libpq](http://www.postgresql.org/docs/9.4/static/libpq.html). This module uses node's worker
 threads to make this package asynchronous instead of libpq's async routines as they still sometimes
-block but also makes the interface much simpler. I also had trouble using
-[node-libpq](https://github.com/brianc/node-libpq) because the asynchronous reading logic somehow
-blocked other node events such as http server listen and Promises.
+block but also makes the interface much simpler.
 
-This library is lower level than [node-postgres](https://github.com/brianc/node-postgres) but higher
- than [node-libpq](https://github.com/brianc/node-libpq) hence the name node-pg-libpq. It
- makes use of [node-pg-types](https://github.com/brianc/node-pg-types).
-
-ES6 Promises are supported by not passing a callback to the query commands. Note that older versions
-of node may need a Promise npm to be installed to use promises.
+ES6 Promises are supported by not passing a callback to the query commands.
 
 ## Install
 
-You need libpq installed and the `pg_config` program should be in your path.  You may also need
-[node-gyp](https://github.com/TooTallNate/node-gyp) installed.
+You must be using node 8 or higher.  You need libpq-dev installed and the `pg_config` program should
+be in your path.  You may also need [node-gyp](https://github.com/TooTallNate/node-gyp) installed.
 
 ```sh
 $ npm i node-pg-libpq
@@ -116,7 +109,7 @@ For convenience the `SQLSTATE` field is set on the last error as the field `sqlS
 
 params are coverted to strings before passing to libpq. No type information is passed along with the
 paramters; it is left for the PostgreSQL server to derive the type. Arrays are naturally converted to
-json format but calling `pgConn.sqlArray(array)` will convert to array format `{1,2,3}`.
+json format but calling `PG.sqlArray(array)` will convert to array format `{1,2,3}`.
 
 For updating calls such as INSERT, UPDATE and DELETE the callback will be called with the number of
 rows affected. For SELECT it is called with an array of rows. Each row is a key/value pair object
@@ -159,6 +152,34 @@ const dbStream = pgConn.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv
 
 dbStream.write('123,"name","address"\n');
 dbStream.end();
+
+```
+### Utility methods
+
+#### `textValue = PG.sqlArray(jsArray)`
+
+Turn a Javascript Array into a text value suitable as an array parameter.
+
+#### `PG.registerType(typeOid, parseFunction)`
+
+Register a function that will convert values of the given `typeOid` into the desired type. For array
+typeOids the parseFunction is the same as the non-array typeOid; it is not responsible for parsing
+the array format. Calling `registerType` without a parseFunction will de-register the typeOid.
+
+The previous parseFunction (if any) is returned.
+
+Note: most primitive types are converted natively before being parsed.
+
+Example:
+
+```js
+    const toUpper v => v.toUpperCase();
+    const prev = PG.registerType(1015, toUpper);
+    PG.registerType(1043, toUpper);
+
+    const rows = await pg.exec(`SELECT 'hello'::varchar AS a, '{a,b}'::varchar[] AS b`);
+    assert.equal(rows[0].a, 'HELLO');
+    assert.deepEqual(rows[0].b, ['A', 'B']);
 ```
 
 ### Not implemented

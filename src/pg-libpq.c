@@ -6,35 +6,28 @@ void Conn_destructor(napi_env env, void* nativeObject, void* finalize_hint) {
 }
 
 napi_value Conn_constructor(napi_env env, napi_callback_info info) {
-  napi_status status;
-
   size_t argc = 1;
   napi_value args[1];
   napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, NULL);
-  assert(status == napi_ok);
+  assertok(napi_get_cb_info(env, info, &argc, args, &jsthis, NULL));
 
   double value = 0;
 
   napi_valuetype valuetype;
-  status = napi_typeof(env, args[0], &valuetype);
-  assert(status == napi_ok);
+  assertok(napi_typeof(env, args[0], &valuetype));
 
-  if (valuetype != napi_undefined) {
-    status = napi_get_value_double(env, args[0], &value);
-    assert(status == napi_ok);
-  }
+  if (valuetype != napi_undefined)
+    assertok(napi_get_value_double(env, args[0], &value));
 
   Conn* conn = calloc(1, sizeof(Conn));
   conn->state = PGLIBPQ_STATE_READY;
 
-  status = napi_wrap(env,
+  assertok(napi_wrap(env,
                      jsthis,
                      conn,
                      Conn_destructor,
                      NULL,  // finalize_hint
-                     &conn->wrapper_);
-  assert(status == napi_ok);
+                     &conn->wrapper_));
 
   return jsthis;
 }
@@ -57,7 +50,10 @@ void async_connectDB(napi_env env, Conn* conn) {
   }
 }
 
-#define done_connectDB done_empty
+void done_connectDB(napi_env env, napi_status status, Conn* conn, napi_value cb_args[]) {
+  if (conn->result == NULL)
+    PQsetClientEncoding(conn->pq, "utf-8");
+}
 
 defAsync(connectDB, 2)
 
@@ -101,7 +97,7 @@ void freeExecArgs(napi_env env, Conn* conn) {
 }
 
 napi_value init_execParams(napi_env env, napi_callback_info info,
-                          Conn* conn, size_t argc, napi_value args[]) {
+                           Conn* conn, size_t argc, napi_value args[]) {
   loadExecArgs(env, conn,
                argc > 0 ? args[0] : NULL,
                argc > 1 ? args[1] : NULL, NULL);
@@ -125,7 +121,7 @@ void done_execParams(napi_env env, napi_status status, Conn* conn, napi_value cb
 defAsync(execParams, 3)
 
 napi_value init_prepare(napi_env env, napi_callback_info info,
-                          Conn* conn, size_t argc, napi_value args[]) {
+                        Conn* conn, size_t argc, napi_value args[]) {
   loadExecArgs(env, conn,
                argc > 1 ? args[1] : NULL,
                NULL,
@@ -143,7 +139,7 @@ void async_prepare(napi_env env, Conn* conn) {
 defAsync(prepare, 3)
 
 napi_value init_execPrepared(napi_env env, napi_callback_info info,
-                          Conn* conn, size_t argc, napi_value args[]) {
+                             Conn* conn, size_t argc, napi_value args[]) {
   loadExecArgs(env, conn,
                NULL,
                argc > 1 ? args[1] : NULL,
@@ -165,7 +161,7 @@ napi_value escapeLiteral(napi_env env, napi_callback_info info) {
   getConn();
   getArgs(1);
   char* str = getString(args[0]);
-  napi_value result =  makeString(PQescapeLiteral(conn->pq, str, getStringLen(args[0])));
+  napi_value result =  makeAutoString(PQescapeLiteral(conn->pq, str, getStringLen(args[0])));
   free(str);
   return result;
 }
@@ -179,7 +175,7 @@ napi_value resultErrorField(napi_env env, napi_callback_info info) {
   char* res = conn->result == NULL
     ? NULL : PQresultErrorField(conn->result, getInt32(args[0]));
   if (res)
-    return makeString(res);
+    return makeAutoString(res);
   else
     return getNull();
 }

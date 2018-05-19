@@ -3,6 +3,7 @@
 
 #include <libpq-fe.h>
 #include <pg_config.h>
+#include "convert.h"
 
 typedef struct Conn Conn;
 
@@ -42,10 +43,10 @@ void throwStateError(napi_env env, const char* expect) {
   assertok(napi_throw_error(env, "PGLIBPQ_STATE_ERROR", buf));
 }
 
-#define ASSERT_STATE(conn, expect)                      \
-  if(conn->state != PGLIBPQ_STATE_ ## expect) {         \
-    throwStateError(env, #expect);                      \
-    return NULL;                                        \
+#define ASSERT_STATE(conn, expect)              \
+  if(conn->state != PGLIBPQ_STATE_ ## expect) { \
+    throwStateError(env, #expect);              \
+    return NULL;                                \
   }
 
 void clearResult(Conn* conn) {
@@ -117,18 +118,18 @@ napi_value convertResult(napi_env env, Conn* conn) {
 
     for(int col = 0; col < cCount; ++col) {
       line = makeArray(2);
-      addString(line, 0, PQfname(value, col));
-      addInt32(line, 1, PQftype(value, col));
+      addValue(line, 0, makeAutoString(PQfname(value, col)));
+      addInt(line, 1, PQftype(value, col));
       /* addInt32(line, 2, PQfmod(value, col)); */
       addValue(colData, col, line);
     }
     for(int row = 0; row < rowCount; ++row) {
-      line = makeArray(cCount);
+      line = makeObject();
       for(int col = 0; col < cCount; ++col) {
-        if (PQgetisnull(value, row, col))
-          addValue(line, col, null);
-        else
-          addString(line, col, PQgetvalue(value, row, col));
+        if (! PQgetisnull(value, row, col))
+          setProperty(line, PQfname(value, col),
+                      convert(env, PQftype(value, col), PQgetvalue(value, row, col),
+                              PQgetlength(value, row, col)));
       }
       addValue(rows, row, line);
     }
@@ -214,6 +215,6 @@ napi_value runAsync(napi_env env, napi_callback_info info,
 
 #define defAsync(name, argc)                                            \
   napi_value name(napi_env env, napi_callback_info info) {              \
-    return runAsync(env, info, quote(pg-libpq_ ## name), argc,                \
+    return runAsync(env, info, quote(pg-libpq_ ## name), argc,          \
                     init_ ## name, async_ ## name,  done_ ## name);     \
   }

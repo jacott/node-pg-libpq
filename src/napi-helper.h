@@ -14,14 +14,23 @@ napi_valuetype _jsType(napi_env env, napi_value value) {
 }
 #define jsType(value) _jsType(env, value)
 
-napi_value _makeString(napi_env env, char* value) {
+napi_value _makeObject(napi_env env) {
   napi_value result;
-  assertok(napi_create_string_utf8(env, value, NAPI_AUTO_LENGTH, &result));
+  assertok(napi_create_object(env, &result));
   return result;
 }
-#define makeString(value) _makeString(env, value)
+#define makeObject() _makeObject(env)
 
-#define addString(object, index, value) addValue(object, index, makeString(value))
+#define setProperty(object, name, value)                        \
+  assertok(napi_set_named_property(env, object, name, value))
+
+napi_value _makeString(napi_env env, char* value, size_t len) {
+  napi_value result;
+  assertok(napi_create_string_utf8(env, value, len, &result));
+  return result;
+}
+#define makeString(value, len) _makeString(env, value, len)
+#define makeAutoString(value) _makeString(env, value, NAPI_AUTO_LENGTH)
 
 size_t _getStringLen(napi_env env, napi_value src) {
   size_t result;
@@ -48,14 +57,21 @@ napi_value _makeBoolean(napi_env env, bool value) {
 }
 #define makeBoolean(value) _makeBoolean(env, value)
 
-napi_value _makeInt32(napi_env env, int32_t value) {
+napi_value _makeInt(napi_env env, int64_t value) {
   napi_value result;
-  assertok(napi_create_int32(env, value, &result));
+  assertok(napi_create_int64(env, value, &result));
   return result;
 }
-#define makeInt32(value) _makeInt32(env, value)
+#define makeInt(value) _makeInt(env, value)
 
-#define addInt32(object, index, value) addValue(object, index, makeInt32(value))
+napi_value _makeDouble(napi_env env, double value) {
+  napi_value result;
+  assertok(napi_create_double(env, value, &result));
+  return result;
+}
+#define makeDouble(value) _makeDouble(env, value)
+
+#define addInt(object, index, value) addValue(object, index, makeInt(value))
 
 int32_t _getInt32(napi_env env, napi_value value) {
   int32_t result;
@@ -67,7 +83,7 @@ int32_t _getInt32(napi_env env, napi_value value) {
 napi_value _makeError(napi_env env, char* msg) {
   napi_value result;
 
-  assertok(napi_create_error(env, NULL, makeString(msg), &result));
+  assertok(napi_create_error(env, NULL, makeAutoString(msg), &result));
   return result;
 }
 #define makeError(msg) _makeError(env, msg)
@@ -102,7 +118,7 @@ uint32_t _arrayLength(napi_env env, napi_value value) {
 }
 #define arrayLength(value) _arrayLength(env, value)
 
-#define addValue(object, index, value) \
+#define addValue(object, index, value)                  \
   assertok(napi_set_element(env, object, index, value))
 
 napi_value _getValue(napi_env env, napi_value object, uint32_t index) {
