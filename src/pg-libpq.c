@@ -44,15 +44,16 @@ void done_empty(napi_env env, napi_status status, Conn* conn, napi_value cb_args
 
 void async_connectDB(napi_env env, Conn* conn) {
   conn->pq = PQconnectdb(conn->request);
-  if (PQstatus(conn->pq) != CONNECTION_OK) {
+  if (PQstatus(conn->pq) == CONNECTION_OK) {
+    PQsetClientEncoding(conn->pq, "utf-8");
+  } else {
     conn->state = PGLIBPQ_STATE_ERROR;
-    conn->result = (PGresult*)conn->pq;
   }
 }
 
 void done_connectDB(napi_env env, napi_status status, Conn* conn, napi_value cb_args[]) {
-  if (conn->result == NULL)
-    PQsetClientEncoding(conn->pq, "utf-8");
+  if (conn->state == PGLIBPQ_STATE_ERROR)
+    cb_args[0] = makeError(PQerrorMessage(conn->pq));
 }
 
 defAsync(connectDB, 2)
