@@ -65,6 +65,7 @@ typedef struct {
 } ExecArgs;
 
 void loadExecArgs(napi_env env, Conn* conn, napi_value cmdv, napi_value paramsv, napi_value namev) {
+  uint32_t i;
   ExecArgs* ea = calloc(1, sizeof(ExecArgs));
   conn->request = ea;
   if (cmdv != NULL) ea->cmd = getString(cmdv);
@@ -72,7 +73,7 @@ void loadExecArgs(napi_env env, Conn* conn, napi_value cmdv, napi_value paramsv,
   if (paramsv != NULL && isArray(paramsv)) {
     uint32_t len = arrayLength(paramsv);
     char** params = malloc(sizeof(char*)*len);
-    for(uint32_t i = 0; i < len; ++i) {
+    for(i = 0; i < len; ++i) {
       napi_value v = getValue(paramsv, i);
       params[i] = jsType(v) == napi_string ?  getString(v) : NULL;
     }
@@ -82,13 +83,14 @@ void loadExecArgs(napi_env env, Conn* conn, napi_value cmdv, napi_value paramsv,
 }
 
 void freeExecArgs(napi_env env, Conn* conn) {
+  uint32_t i;
   ExecArgs* args = conn->request;
   if (args->cmd != NULL) free(args->cmd);
   if (args->name != NULL) free(args->name);
   char** params = args->params;
   if (params != NULL) {
     const size_t len = args->paramsLen;
-    for(uint32_t i = 0; i < len; ++i) {
+    for(i = 0; i < len; ++i) {
       char* v = params[i];
       if (v != NULL)free(v);
     }

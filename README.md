@@ -13,7 +13,7 @@ You must be using node 8 or higher.  You need libpq-dev installed and the `pg_co
 be in your path.  You may also need [node-gyp](https://github.com/TooTallNate/node-gyp) installed.
 
 ```sh
-$ npm i node-pg-libpq
+$ npm i pg-libpq
 ```
 
 ## Use

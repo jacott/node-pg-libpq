@@ -25,20 +25,21 @@ u_char htod(char h) {
 }
 
 napi_value convertBytea(napi_env env, char *text, int len) {
+  size_t i;
   size_t size = (len >> 1)-1;
   u_char* data;
   napi_value result;
   assertok(napi_create_buffer(env, size, (void**)&data, &result));
 
-  for (size_t i = 0; i < size; ++i) {
+  for(i = 0; i < size; ++i) {
     data[i] = (u_char)(htod(text[i*2+2])*16 + htod(text[i*2+3]));
   }
   return result;
 }
 
 int unQuote(char *text, int len) {
-  int src = 0;
-  for (int i = 1; i < len-1; ++i) {
+  int i, src = 0;
+  for(i = 1; i < len-1; ++i) {
     text[src++] = text[text[i] == '\\' ? ++i : i];
   }
   return src;
@@ -50,6 +51,7 @@ typedef struct {
 } arrayAndPos;
 
 arrayAndPos _convertArray(napi_env env, transformer t, char *text, int len) {
+  int ep;
   napi_value result;
   const napi_value nullv = getNull();
   char *word;
@@ -64,7 +66,7 @@ arrayAndPos _convertArray(napi_env env, transformer t, char *text, int len) {
   while (pos < len) {
     c = text[pos];
     if (c == '"') {
-      for(int ep = pos+1; ep < len; ++ep) {
+      for(ep = pos+1; ep < len; ++ep) {
         c = text[ep];
         if (c == '\\') {
           ++ep; continue;
@@ -79,7 +81,7 @@ arrayAndPos _convertArray(napi_env env, transformer t, char *text, int len) {
         }
       }
     } else {
-      for(int ep = pos; ep < len; ++ep) {
+      for(ep = pos; ep < len; ++ep) {
         c = text[ep];
         if (c == ',' || c == '}') {
           word = text+pos; wlen = ep-pos;

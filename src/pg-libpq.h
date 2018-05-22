@@ -107,6 +107,7 @@ napi_value convertResult(napi_env env, Conn* conn) {
     return result;
   }
   default: {
+    int row, col;
     const int64_t rowCount = PQntuples(value);
     const int64_t cCount = PQnfields(value);
     napi_value line;
@@ -116,16 +117,16 @@ napi_value convertResult(napi_env env, Conn* conn) {
     const napi_value rows = makeArray(rowCount);
     addValue(result, 1, rows);
 
-    for(int col = 0; col < cCount; ++col) {
+    for(col = 0; col < cCount; ++col) {
       line = makeArray(2);
       addValue(line, 0, makeAutoString(PQfname(value, col)));
       addInt(line, 1, PQftype(value, col));
       /* addInt32(line, 2, PQfmod(value, col)); */
       addValue(colData, col, line);
     }
-    for(int row = 0; row < rowCount; ++row) {
+    for(row = 0; row < rowCount; ++row) {
       line = makeObject();
-      for(int col = 0; col < cCount; ++col) {
+      for(col = 0; col < cCount; ++col) {
         if (! PQgetisnull(value, row, col))
           setProperty(line, PQfname(value, col),
                       convert(env, PQftype(value, col), PQgetvalue(value, row, col),
