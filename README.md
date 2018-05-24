@@ -1,9 +1,9 @@
 # node-pg-libpq
 
-Native interface to PostgreSQL through
+Native interface to PostgreSQL via
 [libpq](http://www.postgresql.org/docs/current/static/libpq.html). This module uses node's worker
 threads to make this package asynchronous instead of libpq's async routines as they still sometimes
-block but also makes the interface much simpler.
+block.
 
 ES6 Promises are supported by not passing a callback to the query commands.
 
@@ -74,11 +74,12 @@ const genericPool = require('generic-pool');
 
 const pool = genericPool.createPool({
   create() {
-    PG.connect("postgresql://localhost/testdb");
+    return PG.connect("postgresql://localhost/testdb");
   },
   destroy(client) {
     client.finish();
-  }, {max: 10});
+  }
+}, {max: 10});
 ```
 
 #### `PG.connect([conninfo], [function callback(err, client)])`
@@ -86,7 +87,7 @@ const pool = genericPool.createPool({
 Returns a connection `client` to the database. `conninfo` is an optional string; see [libpq -
 Connection strings](https://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING) for details.
 
-If a callback function is supplied it is called with the database connection `client` if successful
+If a callback function is supplied it is called with the database connection `client` if successful;
 otherwise `err` explains why the connection failed.
 
 #### `client.finish()`
@@ -138,13 +139,13 @@ The following types are automatically converted:
 |       |oid      |(26)  |
 |       |int8<sup>*</sup>    |(20)  |
 |float  |float4   |(700) |
-|float  |float8   |(701) |
+|       |float8   |(701) |
 |Buffer |bytea    |(17)  |
 |object |json     |(114) |
-|object |jsonb    |(3807)|
+|       |jsonb    |(3807)|
 |Date   |date     |(1802)|
-|Date   |time     |(1802)|
-|Date   |timestamp|(1114)|
+|       |time     |(1802)|
+|       |timestamp|(1114)|
 
 
 <sup>*</sup> int8 is converted only if the text length is <= 15
