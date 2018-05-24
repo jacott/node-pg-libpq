@@ -1,7 +1,7 @@
 # node-pg-libpq
 
-Native, interface to PostgreSQL through
-[libpq](http://www.postgresql.org/docs/9.4/static/libpq.html). This module uses node's worker
+Native interface to PostgreSQL through
+[libpq](http://www.postgresql.org/docs/current/static/libpq.html). This module uses node's worker
 threads to make this package asynchronous instead of libpq's async routines as they still sometimes
 block but also makes the interface much simpler.
 
@@ -9,38 +9,54 @@ ES6 Promises are supported by not passing a callback to the query commands.
 
 ## Install
 
-You must be using node 8 or higher.  You need libpq-dev installed and the `pg_config` program should
-be in your path.  You may also need [node-gyp](https://github.com/TooTallNate/node-gyp) installed.
+You must be using node 8 or higher.  You may need libpq development libraries installed and the
+`pg_config` program should be in your path.
 
 ```sh
-$ npm i pg-libpq
+$ npm i pg-libpq --save
 ```
 
 ## Use
 
 ```js
-const Libpq = require('pg-libpq');
+const PG = require('pg-libpq');
 
-const pgConn = new Libpq((err, pgConn) => {});
-pgConn.exec("SELECT 'world' AS hello", (err, rows) => {
+const client = PG.connect((err, client) => {});
+client.exec("SELECT 'world' AS hello", (err, rows) => {
     console.log(rows);
-    pgConn.finish();
+    client.finish();
 });
 ```
 
 or with promises
 
 ```js
-const Libpq = require('pg-libpq');
+const PG = require('pg-libpq');
 
-const pgConn = new Libpq;
-pgConn.exec("SELECT 'world' AS hello")
- .then(rows => {
-    console.log(rows);
-    pgConn.finish();
+PG.connect().then(client => {
+  client.exec("SELECT 'world' AS hello")
+    .then(rows => {
+      console.log(rows);
+      client.finish();
+    });
 });
 ```
 
+or with async/await
+
+```js
+const PG = require('pg-libpq');
+
+(async ()=>{
+  const client = await PG.connect();
+  try {
+    const rows = await client.exec("SELECT 'world' AS hello");
+    console.log(rows);
+  } finally {
+    client.finish();
+  }
+})();
+```
 
 ## API
 
@@ -53,93 +69,113 @@ This package does not include a connection pool. You can use
 [generic-pool](https://www.npmjs.com/package/generic-pool) or similar like so:
 
 ```js
-const Libpq = require('pg-libpq');
-const poolModule = require('generic-pool');
+const PG = require('pg-libpq');
+const genericPool = require('generic-pool');
 
-const pool = poolModule.Pool({
-  name: 'PostgreSQL',
-  create(callback) {
-    new Libpq("postgresql://localhost/testdb", callback);
+const pool = genericPool.createPool({
+  create() {
+    PG.connect("postgresql://localhost/testdb");
   },
-  destroy(pgConn) {
-    pgConn.finish();
-  },
-  max: 10,
-});
+  destroy(client) {
+    client.finish();
+  }, {max: 10});
 ```
 
-#### `new Libpq([conninfo], [function callback(err, pgConn)])`
+#### `PG.connect([conninfo], [function callback(err, client)])`
 
-Returns a connection (pgConn) to the database. `conninfo` is an optional string; see [libpq -
-PQconnectdb](http://www.postgresql.org/docs/9.4/interactive/libpq-connect.html) for details.
+Returns a connection `client` to the database. `conninfo` is an optional string; see [libpq -
+Connection strings](https://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING) for details.
 
-If a callback function is supplied it is called with the database connection `pgConn` if successful
+If a callback function is supplied it is called with the database connection `client` if successful
 otherwise `err` explains why the connection failed.
 
-#### `pgConn.finish()`
+#### `client.finish()`
 
-Cancels any command that is in progress and disconnects from the server. This pgConn instance is
+Cancels any command that is in progress and disconnects from the server. The `client` instance is
 unusable afterwards.
 
 ### Queries / Commands
 
-See [libpq - Command execution functions](http://www.postgresql.org/docs/9.4/interactive/libpq-exec.html)
+See [libpq - Command execution functions](http://www.postgresql.org/docs/current/interactive/libpq-exec.html)
 
 An exception will be thrown if more than one command at a time is sent to the same
-pgConn.
+client.
 
-#### `pgConn.isReady()`
+#### `client.isReady()`
 
-Return true if connection is ready to receive a query/command.
+Return true if `client` connection is established and is idle.
 
-#### `pgConn.then(function)`
+#### `client.isClosed()`
 
-Run function when the connection is ready. This method will wait for any currently running query
-chain to finish.
+Return true if `client` connection is disconnected.
 
-#### `pgConn.resultErrorField(name)`
+#### `client.resultErrorField(name)`
 
 Returns an error field associated with the last error where `name` is string in upper case
 corresponding to the `PG_DIAG_` fields but without the `PG_DIAG_` prefix; for example
-`pgConn.resultErrorField('SEVERITY')`.
+`client.resultErrorField('SEVERITY')`.
 
 For convenience the `SQLSTATE` field is set on the last error as the field `sqlState`.
 
-#### `pgConn.execParams(command, params, [callback])`
+#### `client.execParams(command, params, [callback])`
 
-params are coverted to strings before passing to libpq. No type information is passed along with the
-paramters; it is left for the PostgreSQL server to derive the type. Arrays are naturally converted to
+params are converted to strings before passing to libpq. No type information is passed along with the
+parameters; it is left for the PostgreSQL server to derive the type. Arrays are naturally converted to
 json format but calling `PG.sqlArray(array)` will convert to array format `{1,2,3}`.
 
 For updating calls such as INSERT, UPDATE and DELETE the callback will be called with the number of
 rows affected. For SELECT it is called with an array of rows. Each row is a key/value pair object
-where key is the column name and value is calculated using the
-[pg-types](https://www.npmjs.com/package/pg-types) npm package. If the value is `null` no entry will
-be given for that column.
+where key is the column name and value is the javascript equivalent to the postgres column types
+listed below. If the value is `null` no entry will be given for that column.
 
-#### `pgConn.exec(command, [callback])`
+The following types are automatically converted:
+
+|js type|pg type  |(Oid) |
+|-------|---------|------|
+|boolean|bool     |(16)  |
+|number |int2     |(21)  |
+|       |int4     |(23)  |
+|       |oid      |(26)  |
+|       |int8<sup>*</sup>    |(20)  |
+|float  |float4   |(700) |
+|float  |float8   |(701) |
+|Buffer |bytea    |(17)  |
+|object |json     |(114) |
+|object |jsonb    |(3807)|
+|Date   |date     |(1802)|
+|Date   |time     |(1802)|
+|Date   |timestamp|(1114)|
+
+
+<sup>*</sup> int8 is converted only if the text length is <= 15
+
+Arrays of the above types are also converted. All other types will be returned in text format unless
+a type converter is registered (see [PG.registerType](#pgregistertypetypeoid-parsefunction)):
+
+
+#### `client.exec(command, [callback])`
 
 Same as `execParams` but with no params.
 
-#### `pgConn.prepare(name, command, [callback])`
+#### `client.prepare(name, command, [callback])`
 
 Create a prepared statement named `name`. Parameters are specified in the command the same as
 `execParams`. To specify a type for params use the format `$n::type` where `n` is the parameter
 position and `type` is the sql type; for example `$1::text`, `$2::integer[]`, `$3::jsonb`.  To
-discard a prepared statement run `pgConn.exec('DEALLOCATE "name"')`.
+discard a prepared statement run `client.exec('DEALLOCATE "name"')`.
 
-#### `pgConn.execPrepared(name, params, [callback])`
+#### `client.execPrepared(name, params, [callback])`
 
-The same as `execParams` except the prepared statment name, from `prepare`, is given instead of the
+The same as `execParams` except the prepared statement name, from `prepare`, is given instead of the
 command.
 
-#### `escaped = pgConn.escapeLiteral(string)`
+#### `escaped = client.escapeLiteral(string)`
 
 Returns an escaped version of `string` including surrounding with single quotes. The escaping makes
 an untrustworthy string safe to include as part of a sql query. It is preferable to use such strings
-as a param in the `pgConn.execParams` command.
+as a param in the `client.execParams` command.
 
-#### `stream = pgConn.copyFromStream(command, [params], callback)`
+#### `stream = client.copyFromStream(command, [params], callback)`
 
 Copies data from a Writable stream into the database using the `COPY table FROM STDIN` statement.
 There is no promise version of this command.
@@ -147,7 +183,7 @@ There is no promise version of this command.
 Example:
 
 ```js
-const dbStream = pgConn.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv) ',
+const dbStream = client.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv) ',
     err =>{console.log("finished", err)});
 
 dbStream.write('123,"name","address"\n');
@@ -187,7 +223,6 @@ Example:
 * `PQdescribePrepared`
 * `PQdescribePortal`
 * `PQgetCopyData`
-* Binary format -- for sending and receiving fields as binary data instead of text.
 * Retrieving Query Results Row-By-Row. Use cursors instead.
 * Asynchronous Notification -- LISTEN, UNLISTEN, NOTIFY
 

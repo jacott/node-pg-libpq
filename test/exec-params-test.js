@@ -4,7 +4,7 @@ const assert = require('assert');
 describe('execParams', ()=>{
   let pg;
   before(done =>{
-    pg = new PG(done);
+    pg = PG.connect('', done);
   });
 
   after(()=>{

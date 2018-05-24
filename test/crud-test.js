@@ -4,7 +4,7 @@ const assert = require('assert');
 describe('crud', ()=>{
   let pg;
   before(async ()=>{
-    pg = new PG("host=/var/run/postgresql");
+    pg = await PG.connect("host=/var/run/postgresql");
     await pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar jsonb, baz date)");
   });
 
