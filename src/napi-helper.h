@@ -2,8 +2,27 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define assertok(n) assert((n) == napi_ok)
+
+int _debugok(napi_env env, napi_status status) {
+  if (status == napi_ok)
+    return 1;
+
+  const napi_extended_error_info* result;
+  assertok(napi_get_last_error_info(env, &result));
+  printf("ERROR %s\n", result->error_message);
+  return 0;
+}
+#define debugok(status) assert(_debugok(env, status))
+
+napi_value _getRef(napi_env env, napi_ref ref) {
+  napi_value result;
+  assertok(napi_get_reference_value(env, ref, &result));
+  return result;
+}
+#define getRef(ref) _getRef(env, ref)
 
 #define quote(x) #x
 
@@ -140,6 +159,15 @@ napi_value _getUndefined(napi_env env) {
   return ans;
 }
 #define getUndefined() _getUndefined(env)
+
+
+napi_value _getGlobal(napi_env env) {
+  napi_value ans;
+
+  napi_get_global(env, &ans);
+  return ans;
+}
+#define getGlobal() _getGlobal(env)
 
 napi_value _getNull(napi_env env) {
   napi_value ans;

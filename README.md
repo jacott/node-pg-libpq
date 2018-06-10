@@ -1,16 +1,16 @@
 # node-pg-libpq
 
 Native interface to PostgreSQL via
-[libpq](http://www.postgresql.org/docs/current/static/libpq.html). This module uses node's worker
-threads to make this package asynchronous instead of libpq's async routines as they still sometimes
-block.
+[libpq](https://www.postgresql.org/docs/current/static/libpq.html). This module uses independent
+[libuv](https://http://docs.libuv.org) threads for each database connection which ensures that node
+is not blocked while database activity is being processed.
 
 ES6 Promises are supported by not passing a callback to the query commands.
 
 ## Install
 
-You need to be using node 8 or higher.  You may need libpq development libraries installed and the
-`pg_config` script should be in your executable path.
+You need to be using node 8.11 or higher.  You may need libpq development libraries installed and
+the `pg_config` script should be in your executable path.
 
 ```sh
 $ pg_config --version && npm i pg-libpq --save
@@ -38,6 +38,7 @@ PG.connect().then(client => {
     .then(rows => {
       console.log(rows);
       client.finish();
+      PG.close();
     });
 });
 ```
@@ -54,6 +55,7 @@ const PG = require('pg-libpq');
     console.log(rows);
   } finally {
     client.finish();
+    PG.close();
   }
 })();
 ```
@@ -93,6 +95,11 @@ details.
 
 Cancels any command that is in progress and disconnects from the server. The `client` instance is
 unusable afterwards.
+
+#### `PG.close()`
+
+This needs to be called in order to exit the node process. It closes a pipe between the main node
+thread and the database connection threads.
 
 ### Queries / Commands
 

@@ -1,8 +1,9 @@
 #include "pg-libpq.h"
 
 void Conn_destructor(napi_env env, void* nativeObject, void* finalize_hint) {
-  napi_delete_reference(env, ((Conn*)nativeObject)->wrapper_);
-  free(nativeObject);
+  Conn* conn = nativeObject;
+  napi_delete_reference(env, conn->wrapper_);
+  free(conn);
 }
 
 napi_value Conn_constructor(napi_env env, napi_callback_info info) {
@@ -39,10 +40,7 @@ napi_value init_connectDB(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void done_empty(napi_env env, napi_status status, Conn* conn, napi_value cb_args[]) {
-}
-
-void async_connectDB(napi_env env, Conn* conn) {
+void async_connectDB(Conn* conn) {
   conn->pq = PQconnectdb(conn->request);
   if (PQstatus(conn->pq) == CONNECTION_OK) {
     PQsetClientEncoding(conn->pq, "utf-8");
@@ -51,7 +49,7 @@ void async_connectDB(napi_env env, Conn* conn) {
   }
 }
 
-void done_connectDB(napi_env env, napi_status status, Conn* conn, napi_value cb_args[]) {
+void done_connectDB(napi_env env, Conn* conn, napi_value cb_args[]) {
   if (conn->state == PGLIBPQ_STATE_ERROR)
     cb_args[0] = makeError(PQerrorMessage(conn->pq));
 }
@@ -107,7 +105,7 @@ napi_value init_execParams(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void async_execParams(napi_env env, Conn* conn) {
+void async_execParams(Conn* conn) {
   ExecArgs* args = conn->request;
   if (args->params == NULL)
     conn->result = PQexec(conn->pq, args->cmd);
@@ -117,7 +115,7 @@ void async_execParams(napi_env env, Conn* conn) {
                                 NULL, NULL, 0);
 }
 
-void done_execParams(napi_env env, napi_status status, Conn* conn, napi_value cb_args[]) {
+void done_execParams(napi_env env, Conn* conn, napi_value cb_args[]) {
   freeExecArgs(env, conn);
 }
 
@@ -132,7 +130,7 @@ napi_value init_prepare(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void async_prepare(napi_env env, Conn* conn) {
+void async_prepare(Conn* conn) {
   ExecArgs* args = conn->request;
   conn->result = PQprepare(conn->pq, args->name, args->cmd, 0, NULL);
 }
@@ -149,7 +147,7 @@ napi_value init_execPrepared(napi_env env, napi_callback_info info,
                argc > 0 ? args[0] : NULL);
   return NULL;
 }
-void async_execPrepared(napi_env env, Conn* conn) {
+void async_execPrepared(Conn* conn) {
   ExecArgs* args = conn->request;
   conn->result = PQexecPrepared(conn->pq, args->name,
                                 args->paramsLen, (const char* const*)args->params,
@@ -201,17 +199,17 @@ char* cancel(Conn* conn) {
 }
 
 napi_value finish(napi_env env, napi_callback_info info) {
+  uv_mutex_lock(&waitingQueue.lock);
   getConn();
   if (conn->state == PGLIBPQ_STATE_BUSY || conn->copy_inprogress) {
+    conn->state = PGLIBPQ_STATE_ABORT;
     char* errMsg = cancel(conn);
     if (errMsg) free(errMsg);
-    conn->state = PGLIBPQ_STATE_ABORT;
-
-    napi_cancel_async_work(env, conn->work);
   } else {
     ASSERT_STATE(conn, READY);
     cleanup(env, conn);
   }
+  uv_mutex_unlock(&waitingQueue.lock);
 
   return NULL;
 }
@@ -223,9 +221,17 @@ napi_value isReady(napi_env env, napi_callback_info info) {
 }
 
 #define defFunc(func) {#func, 0, func, 0, 0, 0, napi_default, 0}
+#define defValue(name, value) {#name, 0, 0, 0, 0, value, napi_default, 0}
+
+void _addStatic(napi_env env, napi_value object, char* name, napi_callback func) {
+  napi_value result;
+  assertok(napi_create_function(env, name, NAPI_AUTO_LENGTH, func, NULL, &result));
+  assertok(napi_set_named_property(env, object, name, result));
+}
+#define addStatic(object, name) _addStatic(env, object, # name, name);
 
 napi_value Init(napi_env env, napi_value exports) {
-  napi_value new_exports;
+  napi_value PG;
   napi_property_descriptor properties[] = {
     defFunc(connectDB),
     defFunc(finish),
@@ -246,9 +252,18 @@ napi_value Init(napi_env env, napi_value exports) {
                              NULL,
                              (size_t)sizeof(properties)/sizeof(napi_property_descriptor),
                              properties,
-                             &new_exports));
+                             &PG));
 
-  return new_exports;
+  addStatic(PG, initPipe);
+  addStatic(PG, closePipe);
+  addStatic(PG, runCallbacks);
+
+  /* napi_value sv = makeArray(sv_max); */
+  /* assertok(napi_create_reference(env, sv, 1, &sv_ref)); */
+
+  initQueue(&waitingQueue);
+
+  return PG;
 }
 
 NAPI_MODULE(NODE_GYP_MODULE_NAME, Init)

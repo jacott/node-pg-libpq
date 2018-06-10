@@ -1,15 +1,20 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 cd $(dirname "$0")/..
 
+echo "test: Entering directory '$(pwd)'"
+
 rm -f core
-ulimit -c unlimited
+ulimit -c unlimited || echo "no core dumping :("
 if [ ! -e "build/Makefile" ];then
     node-gyp configure
 fi
-make -w -C build -s
-echo "test: Entering directory '$(pwd)'"
+
+node-gyp build
 
 export TZ=UTC
 
-exec node_modules/.bin/mocha -C -R dot "$@"
+cd test
+echo "test: Entering directory '$(pwd)'"
+
+exec ../node_modules/.bin/mocha -C -R dot .

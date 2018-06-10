@@ -1,6 +1,8 @@
 const PG = require('../');
 const assert = require('assert');
 
+after(()=>{PG.close()});
+
 describe('connecting', ()=>{
 
   it('connects using defaults', done =>{

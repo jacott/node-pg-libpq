@@ -26,13 +26,13 @@ napi_value init_putCopyData(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void async_putCopyData(napi_env env, Conn* conn) {
+void async_putCopyData(Conn* conn) {
   PutData *putData = conn->request;
   if (PQputCopyData(conn->pq, putData->data, putData->length) == -1)
     putData->error = PQerrorMessage(conn->pq);
 }
 
-void done_putCopyData(napi_env env, napi_status status, Conn* conn, napi_value cb_args[]) {
+void done_putCopyData(napi_env env, Conn* conn, napi_value cb_args[]) {
   PutData* putData = conn->request;
   if (putData->ref != NULL) napi_delete_reference(env, putData->ref);
   if (putData->error != NULL) cb_args[0] = makeError(putData->error);
@@ -43,19 +43,28 @@ defAsync(putCopyData, 2)
 
 napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
                            Conn* conn, size_t argc, napi_value args[]) {
-  PutData *putData = calloc(1, sizeof(PutData));
-  if (argc > 1 && jsType(args[0]) == napi_string)
+  PutData *putData =  calloc(1, sizeof(PutData));
+  if (argc > 1 && jsType(args[0]) == napi_string) {
     putData->data = getString(args[0]);
+  }
   conn->request = putData;
   return NULL;
 }
 
-void async_putCopyEnd(napi_env env, Conn* conn) {
+void async_putCopyEnd(Conn* conn) {
   PutData* putData = conn->request;
   if (PQputCopyEnd(conn->pq, putData->data) == -1)
     putData->error = PQerrorMessage(conn->pq);
 }
 
-#define done_putCopyEnd done_putCopyData
+void done_putCopyEnd(napi_env env, Conn* conn, napi_value cb_args[]) {
+  PutData* putData = conn->request;
+  if (putData->data != NULL) {
+    free(putData->data);
+    putData->data = NULL;
+  }
+  done_putCopyData(env, conn, cb_args);
+}
+
 
 defAsync(putCopyEnd, 2)

@@ -1,5 +1,6 @@
 #include "napi-helper.h"
-#include <stdio.h>
+#include <unistd.h>
+#include <uv.h>
 
 #include <libpq-fe.h>
 #include <pg_config.h>
@@ -10,23 +11,108 @@ typedef struct Conn Conn;
 typedef napi_value (*conn_async_init)(napi_env env, napi_callback_info info,
                                       Conn* conn, size_t argc, napi_value args[]);
 
-typedef void (*conn_async_execute)(napi_env env, Conn* conn);
+typedef void (*conn_async_execute)(Conn* conn);
 
-typedef void (*conn_async_complete)(napi_env env, napi_status status,
+typedef void (*conn_async_complete)(napi_env env,
                                     Conn* conn, napi_value cb_args[]);
 
 struct Conn {
-  int state;
-  bool copy_inprogress;
   PGconn* pq;
-  void* request;
+  int state;
   PGresult* result;
+  bool copy_inprogress;
+  void* request;
+  uv_thread_t thread;
+  uv_mutex_t lock;
   napi_ref wrapper_;
-  napi_async_work work;
   napi_ref callback_ref;
   conn_async_execute execute;
   conn_async_complete complete;
 };
+
+typedef struct NextConn NextConn;
+
+struct NextConn {
+  Conn* conn;
+  NextConn* next;
+};
+
+typedef struct {
+  NextConn* head;
+  NextConn* tail;
+  uv_mutex_t lock;
+} ConnQueue;
+
+ConnQueue waitingQueue;
+
+void initQueue(ConnQueue* queue) {
+  queue->head = queue->tail = NULL;
+  uv_mutex_init(&queue->lock);
+}
+
+void queueAddConn(ConnQueue* queue, Conn* conn) {
+  NextConn* node = malloc(sizeof(NextConn));
+  node->conn = conn;
+  node->next = NULL;
+  if (queue->head == NULL) {
+    queue->head = queue->tail = node;
+  } else {
+    queue->tail->next = node;
+    queue->tail = node;
+  }
+}
+
+Conn* queueRmHead(ConnQueue* queue) {
+  Conn* conn = NULL;
+  uv_mutex_lock(&queue->lock);
+  NextConn* node = queue->head;
+  if (node) {
+    queue->head = node->next;
+    if (! queue->head) queue->tail = NULL;
+
+    conn = node->conn;
+    free(node);
+  }
+  uv_mutex_unlock(&queue->lock);
+  return conn;
+}
+
+void queueRmNode(ConnQueue* queue, NextConn* node, NextConn* prev) {
+  NextConn* next = node->next;
+  if (prev == NULL) {
+    queue->head = next;
+  } else {
+    prev->next = next;
+  }
+  if (next == NULL) {
+    queue->tail = prev;
+  }
+  free(node);
+}
+
+void queueRmConn(ConnQueue* queue, Conn* conn) {
+  NextConn* prev = NULL;
+  uv_mutex_lock(&queue->lock);
+  for(NextConn* node = queue->head; node; prev = node, node = node->next) {
+    if (node->conn == conn) {
+      queueRmNode(queue, node, prev);
+      break;
+    }
+  }
+  uv_mutex_unlock(&queue->lock);
+}
+
+/** static values **/
+// static napi_ref sv_ref;
+
+typedef enum {
+  sv_max,
+} sv_prop;
+
+/* napi_value _sref(napi_env env, sv_prop index) { */
+/*   return getValue(getRef(sv_ref), index); */
+/* } */
+/* #define srefValue(index) _sref(env, index) */
 
 
 #define PGLIBPQ_STATE_ABORT -2
@@ -59,11 +145,6 @@ void clearResult(Conn* conn) {
 static void cleanup(napi_env env, Conn* conn) {
   if (IS_CLOSED(conn)) return;
 
-  if (conn->work != NULL) {
-    assertok(napi_delete_async_work(env, conn->work));
-    conn->work = NULL;
-  }
-
   conn->state = PGLIBPQ_STATE_CLOSED;
   if (conn->callback_ref != NULL) {
     assertok(napi_delete_reference(env, conn->callback_ref));
@@ -71,6 +152,8 @@ static void cleanup(napi_env env, Conn* conn) {
   clearResult(conn);
   PQfinish(conn->pq);
   conn->pq = NULL;
+  uv_mutex_unlock(&conn->lock);
+  uv_thread_join(&conn->thread);
 }
 
 Conn* _getConn(napi_env env, napi_callback_info info) {
@@ -141,10 +224,38 @@ napi_value convertResult(napi_env env, Conn* conn) {
   return makeError(PQerrorMessage(conn->pq));
 }
 
+int pipeDesc[2] = {-1, -1};
 
-void async_execute(napi_env env, void* data) {
+napi_value initPipe(napi_env env, napi_callback_info info) {
+  assert(pipe(pipeDesc)==0);
+  return makeInt(pipeDesc[0]);
+}
+
+napi_value closePipe(napi_env env, napi_callback_info info) {
+  uv_mutex_lock(&waitingQueue.lock);
+  assert(close(pipeDesc[0])==0);
+  assert(close(pipeDesc[1])==0);
+  pipeDesc[0] = pipeDesc[1] = -1;
+  uv_mutex_unlock(&waitingQueue.lock);
+  return NULL;
+}
+
+void async_execute(void* data) {
   Conn* conn = data;
-  conn->execute(env, conn);
+  while(true) {
+    uv_mutex_lock(&conn->lock);
+    if (conn->state == PGLIBPQ_STATE_CLOSED)
+      return;
+    conn->execute(conn);
+    uv_mutex_lock(&waitingQueue.lock);
+    if (pipeDesc[1] != -1) {
+      if (waitingQueue.head == NULL)
+        assert(write(pipeDesc[1], "1", 1)==1);
+
+      queueAddConn(&waitingQueue, conn);
+    }
+    uv_mutex_unlock(&waitingQueue.lock);
+  }
 }
 
 void async_complete(napi_env env, napi_status status, void* data) {
@@ -157,7 +268,7 @@ void async_complete(napi_env env, napi_status status, void* data) {
 
   napi_value cb_args[] = {err ? result : null, err ? null : result};
 
-  conn->complete(env, status, conn, cb_args);
+  conn->complete(env, conn, cb_args);
 
   if (! err) clearResult(conn);
 
@@ -166,9 +277,7 @@ void async_complete(napi_env env, napi_status status, void* data) {
     conn->request = NULL;
   }
 
-  napi_value callback;
-  assertok(napi_get_reference_value(env, conn->callback_ref, &callback));
-  assertok(napi_delete_reference(env, conn->callback_ref));
+  napi_value callback = getRef(conn->callback_ref);
   conn->callback_ref = NULL;
 
   if (isAbort) {
@@ -176,9 +285,23 @@ void async_complete(napi_env env, napi_status status, void* data) {
   } else {
     conn->state = PGLIBPQ_STATE_READY;
   }
+  napi_call_function(env, getGlobal(), callback, 2, cb_args, &result);
+}
 
-  napi_value global; assertok(napi_get_global(env, &global));
-  napi_call_function(env, global, callback, 2, cb_args, &result);
+napi_value runCallbacks(napi_env env, napi_callback_info info) {
+  Conn* conn;
+  while((conn = queueRmHead(&waitingQueue))) {
+    async_complete(env, 0, conn);
+  }
+  return NULL;
+}
+
+void queueJob(napi_env env, Conn* conn) {
+  if (conn->pq == NULL) {
+    uv_mutex_init(&conn->lock);
+    uv_thread_create(&conn->thread, async_execute, conn);
+  } else
+    uv_mutex_unlock(&conn->lock);
 }
 
 napi_value runAsync(napi_env env, napi_callback_info info,
@@ -192,25 +315,15 @@ napi_value runAsync(napi_env env, napi_callback_info info,
 
   conn->execute = execute;
   conn->complete = complete;
-  napi_value resource_id;
+
   napi_value args[argc];
   assertok(napi_get_cb_info(env, info, &argc, args, NULL, NULL));
 
+  assertok(napi_create_reference(env, args[argc-1], 1, &conn->callback_ref));
   napi_value result = init(env, info, conn, argc, args);
 
-  assertok(napi_create_reference(env, args[argc-1], 1, &conn->callback_ref));
+  queueJob(env, conn);
 
-  if (conn->work == NULL) {
-    assertok(napi_create_string_latin1(env, quote(name), NAPI_AUTO_LENGTH, &resource_id));
-    assertok(napi_create_async_work(env,
-                                    NULL,
-                                    resource_id,
-                                    async_execute,
-                                    async_complete,
-                                    conn,
-                                    &conn->work));
-  }
-  napi_queue_async_work(env, conn->work);
   return result;
 }
 
