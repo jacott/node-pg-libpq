@@ -9,11 +9,11 @@ ES6 Promises are supported by not passing a callback to the query commands.
 
 ## Install
 
-You must be using node 8 or higher.  You may need libpq development libraries installed and the
-`pg_config` program should be in your path.
+You need to be using node 8 or higher.  You may need libpq development libraries installed and the
+`pg_config` script should be in your executable path.
 
 ```sh
-$ npm i pg-libpq --save
+$ pg_config --version && npm i pg-libpq --save
 ```
 
 ## Use
@@ -84,11 +84,10 @@ const pool = genericPool.createPool({
 
 #### `PG.connect([conninfo], [function callback(err, client)])`
 
-Returns a connection `client` to the database. `conninfo` is an optional string; see [libpq -
-Connection strings](https://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING) for details.
-
-If a callback function is supplied it is called with the database connection `client` if successful;
-otherwise `err` explains why the connection failed.
+Returns a connection `client` to the database. `conninfo` is an optional connection string; see
+[libpq - Connection
+strings](https://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING) for
+details.
 
 #### `client.finish()`
 
@@ -98,9 +97,6 @@ unusable afterwards.
 ### Queries / Commands
 
 See [libpq - Command execution functions](http://www.postgresql.org/docs/current/interactive/libpq-exec.html)
-
-An exception will be thrown if more than one command at a time is sent to the same
-client.
 
 #### `client.isReady()`
 
@@ -137,7 +133,7 @@ The following types are automatically converted:
 |number |int2     |(21)  |
 |       |int4     |(23)  |
 |       |oid      |(26)  |
-|       |int8<sup>*</sup>    |(20)  |
+|       |int8<sup>*</sup> |(20)|
 |float  |float4   |(700) |
 |       |float8   |(701) |
 |Buffer |bytea    |(17)  |
