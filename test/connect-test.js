@@ -19,6 +19,25 @@ describe('connecting', ()=>{
     });
   });
 
+  it('logs callback exceptions', done =>{
+    const origLog = console.log;
+    const pg = new PG(err => {err && done(err)});
+    let ex;
+    after(()=>{console.log = origLog});
+    console.log = (arg1, arg2) =>{
+      try {
+        assert.equal(arg1, 'Unhandled Exception');
+        assert.equal(arg2, ex);
+        done();
+      } catch(ex2) {
+        done(ex2);
+      }
+    };
+    pg.exec("SELECT 1", (err, res) => {
+      throw ex = new Error('test');
+    });
+  });
+
   it('connects using tcp socket', done =>{
     PG.connect("host=localhost password=bad sslmode=disable")
       .then(()=>{assert(false, "should have thrown exception");})

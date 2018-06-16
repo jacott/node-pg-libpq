@@ -285,7 +285,7 @@ void async_complete(napi_env env, napi_status status, void* data) {
   } else {
     conn->state = PGLIBPQ_STATE_READY;
   }
-  napi_call_function(env, getGlobal(), callback, 2, cb_args, &result);
+  assertok(napi_call_function(env, getGlobal(), callback, 2, cb_args, &result));
 }
 
 napi_value runCallbacks(napi_env env, napi_callback_info info) {
