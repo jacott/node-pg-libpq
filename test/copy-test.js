@@ -21,21 +21,23 @@ describe('copy streaming', ()=>{
   it("can cancel in progress", done =>{
     let wasReady;
     assert.equal(pg.isReady(), true);
-    const dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
-      assert.equal(err.message, 'connection is closed');
-      assert.equal(err.sqlState, '08003');
-      assert.equal(wasReady, false);
-      assert.equal(pg.isReady(), false);
-      dbStream.on('error', error =>{
-        try {
-          assert.equal(error, 'connection closed');
-          done();
-        } catch(ex) {
-          done(ex);
-        }
+    const dbStream = pg.copyFromStream(
+      Buffer.from('COPY node_pg_test FROM STDIN WITH (FORMAT csv) '),
+      err =>{
+        assert.equal(err.message, 'connection is closed');
+        assert.equal(err.sqlState, '08003');
+        assert.equal(wasReady, false);
+        assert.equal(pg.isReady(), false);
+        dbStream.on('error', error =>{
+          try {
+            assert.equal(error, 'connection closed');
+            done();
+          } catch(ex) {
+            done(ex);
+          }
+        });
+        dbStream.end('123,"name","2015-01-01"\n'); // should trigger above error
       });
-      dbStream.end('123,"name","2015-01-01"\n'); // should trigger above error
-    });
     dbStream.write('123,"line 1","2015-02-02"\n');
     assert.equal(pg.isReady(), false);
     setTimeout(()=>{

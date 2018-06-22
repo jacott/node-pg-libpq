@@ -7,7 +7,7 @@ describe('connecting', ()=>{
 
   it('connects using defaults', done =>{
     const pg = new PG(err => {err && done(err)});
-    pg.exec("SELECT 1", (err, res) => {
+    pg.exec(Buffer.from("SELECT 1"), (err, res) => {
       try {
         assert.ifError(err);
         assert.equal(res[0]['?column?'], 1);

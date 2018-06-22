@@ -1,7 +1,7 @@
 {
   "name": "pg-libpq",
   "description": "Native interface to PostgreSQL via libuv threads",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "author": "Geoff Jacobsen <geoffjacobsen@gmail.com>",
   "license": "MIT",
   "main": "lib/pg-libpq",

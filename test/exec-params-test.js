@@ -13,7 +13,9 @@ describe('execParams', ()=>{
   });
 
   it('should accept numbers and strings', done =>{
-    pg.execParams("SELECT $1::integer AS number, $2::text as string", [1, 'text']).then(result =>{
+    pg.execParams(
+      Buffer.from("SELECT $1::integer AS number, $2::text as string"), [1, 'text']
+    ).then(result =>{
       assert.equal(result[0].number, 1);
       assert.equal(result[0].string, 'text');
     }).then(done, done);

@@ -15,5 +15,6 @@ describe('escaping', ()=>{
   it("should escape literals", ()=>{
     assert.equal(pg.escapeLiteral("John's dinner"), "'John''s dinner'");
     assert.equal(pg.escapeLiteral("234"), "'234'");
+    assert.equal(pg.escapeLiteral(234), "'234'");
   });
 });

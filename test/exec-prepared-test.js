@@ -24,4 +24,13 @@ describe('execPrepared', ()=>{
         assert.equal(result[0].string, 'foo');
       }).then(done, done);
   });
+
+  it('should convert args to strings', done =>{
+    pg.prepare(Buffer.from("p2"), {toString: ()=> "SELECT $1::integer AS number, $2::text as string"})
+      .then(()=> pg.execPrepared({toString: () => "p2"}, [1, 'text']))
+      .then(result =>{
+        assert.equal(result[0].number, 1);
+        assert.equal(result[0].string, 'text');
+      }).then(done, done);
+  });
 });
