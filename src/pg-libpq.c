@@ -41,10 +41,18 @@ napi_value init_connectDB(napi_env env, napi_callback_info info,
 }
 
 void async_connectDB(Conn* conn) {
-  conn->pq = PQconnectdb(conn->request);
-  if (PQstatus(conn->pq) == CONNECTION_OK) {
+  void* request = conn->request;
+  dm(conn, connectDB,__FILE__,__LINE__);
+  unlockConn(__FILE__,__LINE__);
+  PGconn* pq = PQconnectdb(request);
+  lockConn(__FILE__,__LINE__);
+  if (conn->state != PGLIBPQ_STATE_BUSY)
+    return;
+  conn->pq = pq;
+  if (PQstatus(pq) == CONNECTION_OK) {
     PQsetClientEncoding(conn->pq, "utf-8");
   } else {
+    dm(conn, connectDBFailed, __FILE__,__LINE__);
     conn->state = PGLIBPQ_STATE_ERROR;
   }
 }
@@ -91,7 +99,7 @@ void freeExecArgs(napi_env env, Conn* conn) {
     const size_t len = args->paramsLen;
     for(i = 0; i < len; ++i) {
       char* v = params[i];
-      if (v != NULL)free(v);
+      if (v != NULL) free(v);
     }
     free(params);
   }
@@ -107,12 +115,15 @@ napi_value init_execParams(napi_env env, napi_callback_info info,
 
 void async_execParams(Conn* conn) {
   ExecArgs* args = conn->request;
+  PGconn* pq = conn->pq;
+  unlockConn(__FILE__,__LINE__);
   if (args->params == NULL)
-    conn->result = PQexec(conn->pq, args->cmd);
+    conn->result = PQexec(pq, args->cmd);
   else
-    conn->result = PQexecParams(conn->pq, args->cmd,
+    conn->result = PQexecParams(pq, args->cmd,
                                 args->paramsLen, NULL, (const char* const*)args->params,
                                 NULL, NULL, 0);
+  lockConn(__FILE__,__LINE__);
 }
 
 void done_execParams(napi_env env, Conn* conn, napi_value cb_args[]) {
@@ -132,7 +143,10 @@ napi_value init_prepare(napi_env env, napi_callback_info info,
 
 void async_prepare(Conn* conn) {
   ExecArgs* args = conn->request;
-  conn->result = PQprepare(conn->pq, args->name, args->cmd, 0, NULL);
+  PGconn* pq = conn->pq;
+  unlockConn(__FILE__,__LINE__);
+  conn->result = PQprepare(pq, args->name, args->cmd, 0, NULL);
+  lockConn(__FILE__,__LINE__);
 }
 
 #define done_prepare done_execParams
@@ -149,9 +163,12 @@ napi_value init_execPrepared(napi_env env, napi_callback_info info,
 }
 void async_execPrepared(Conn* conn) {
   ExecArgs* args = conn->request;
-  conn->result = PQexecPrepared(conn->pq, args->name,
+  PGconn* pq = conn->pq;
+  unlockConn(__FILE__,__LINE__);
+  conn->result = PQexecPrepared(pq, args->name,
                                 args->paramsLen, (const char* const*)args->params,
                                 NULL, NULL, 0);
+  lockConn(__FILE__,__LINE__);
 }
 #define done_execPrepared done_execParams
 defAsync(execPrepared, 3)
@@ -201,12 +218,16 @@ char* cancel(Conn* conn) {
 napi_value finish(napi_env env, napi_callback_info info) {
   uv_mutex_lock(&waitingQueue.lock);
   getConn();
+  lockConn(__FILE__,__LINE__);
+  dm(conn, finish, __FILE__,__LINE__);
   if (conn->state == PGLIBPQ_STATE_BUSY || conn->copy_inprogress) {
     conn->state = PGLIBPQ_STATE_ABORT;
     char* errMsg = cancel(conn);
     if (errMsg) free(errMsg);
+    unlockConn(__FILE__,__LINE__);
   } else {
     ASSERT_STATE(conn, READY);
+    unlockConn(__FILE__,__LINE__);
     cleanup(env, conn);
   }
   uv_mutex_unlock(&waitingQueue.lock);
@@ -261,6 +282,7 @@ napi_value Init(napi_env env, napi_value exports) {
   /* napi_value sv = makeArray(sv_max); */
   /* assertok(napi_create_reference(env, sv, 1, &sv_ref)); */
 
+  uv_mutex_init(&gLock);
   initQueue(&waitingQueue);
 
   return PG;

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#define dm(ptr, msg, fn, ln) // printf("%s:%d: %s '%p'\n", fn, ln, #msg, ptr)
+
 #define assertok(n) assert((n) == napi_ok)
 
 int _debugok(napi_env env, napi_status status) {

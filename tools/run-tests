@@ -12,6 +12,12 @@ fi
 
 node-gyp build
 
+if [ "$1" = "memleak" ]; then
+    cd tools
+    echo "test: Entering directory '$(pwd)'"
+    exec node ./memleak.js
+fi
+
 export TZ=UTC
 
 cd test
