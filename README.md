@@ -38,7 +38,6 @@ PG.connect().then(client => {
     .then(rows => {
       console.log(rows);
       client.finish();
-      PG.close();
     });
 });
 ```
@@ -55,7 +54,6 @@ const PG = require('pg-libpq');
     console.log(rows);
   } finally {
     client.finish();
-    PG.close();
   }
 })();
 ```
@@ -95,11 +93,6 @@ details.
 
 Cancels any command that is in progress and disconnects from the server. The `client` instance is
 unusable afterwards.
-
-#### `PG.close()`
-
-This needs to be called in order to exit the node process. It closes a pipe between the main node
-thread and the database connection threads.
 
 ### Queries / Commands
 
@@ -246,7 +239,7 @@ tests.
 
 The MIT License (MIT)
 
-Copyright (c) 2015-2018 Geoff Jacobsen <geoffjacobsen@gmail.com>
+Copyright (c) 2015-2019 Geoff Jacobsen <geoffjacobsen@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

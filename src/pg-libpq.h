@@ -1,5 +1,4 @@
 #include "napi-helper.h"
-#include <unistd.h>
 #include <uv.h>
 
 #include <libpq-fe.h>
@@ -50,6 +49,8 @@ typedef struct {
 } ConnQueue;
 
 ConnQueue waitingQueue;
+
+napi_threadsafe_function threadsafe_func;
 
 void initQueue(ConnQueue* queue) {
   queue->head = queue->tail = NULL;
@@ -158,6 +159,7 @@ static void cleanup(napi_env env, Conn* conn) {
   if (conn->state == PGLIBPQ_STATE_CLOSED) return;
 
   conn->state = PGLIBPQ_STATE_CLOSED;
+
   freeCallbackRef(env, conn);
   clearResult(conn);
   if (conn->pq != NULL) {
@@ -243,21 +245,6 @@ napi_value convertResult(napi_env env, Conn* conn) {
   return makeError(PQerrorMessage(conn->pq));
 }
 
-int pipeDesc[2] = {-1, -1};
-
-napi_value initPipe(napi_env env, napi_callback_info info) {
-  assert(pipe(pipeDesc)==0);
-  return makeInt(pipeDesc[0]);
-}
-
-napi_value closePipe(napi_env env, napi_callback_info info) {
-  uv_mutex_lock(&waitingQueue.lock);
-  assert(close(pipeDesc[0])==0);
-  assert(close(pipeDesc[1])==0);
-  pipeDesc[0] = pipeDesc[1] = -1;
-  uv_mutex_unlock(&waitingQueue.lock);
-  return NULL;
-}
 
 void async_execute(void* data) {
   Conn* conn = data;
@@ -272,12 +259,8 @@ void async_execute(void* data) {
     }
     conn->execute(conn);
     uv_mutex_lock(&waitingQueue.lock);
-    if (pipeDesc[1] != -1) {
-      if (waitingQueue.head == NULL)
-        assert(write(pipeDesc[1], "1", 1)==1);
-
-      queueAddConn(&waitingQueue, conn);
-    }
+    queueAddConn(&waitingQueue, conn);
+    napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking);
     uv_mutex_unlock(&waitingQueue.lock);
 
     unlockConn(__FILE__,__LINE__);

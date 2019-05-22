@@ -241,6 +241,7 @@ napi_value isReady(napi_env env, napi_callback_info info) {
                      ! conn->copy_inprogress);
 }
 
+
 #define defFunc(func) {#func, 0, func, 0, 0, 0, napi_default, 0}
 #define defValue(name, value) {#name, 0, 0, 0, 0, value, napi_default, 0}
 
@@ -275,12 +276,26 @@ napi_value Init(napi_env env, napi_value exports) {
                              properties,
                              &PG));
 
-  addStatic(PG, initPipe);
-  addStatic(PG, closePipe);
-  addStatic(PG, runCallbacks);
 
-  /* napi_value sv = makeArray(sv_max); */
-  /* assertok(napi_create_reference(env, sv, 1, &sv_ref)); */
+  napi_value tsCallback;
+  assertok(napi_create_function(env, "runCallbacks", NAPI_AUTO_LENGTH,
+                                runCallbacks, NULL, &tsCallback));
+
+  assertok(napi_create_threadsafe_function
+           (env, // napi_env env,
+            tsCallback, // napi_value func,
+            NULL, // napi_value async_resource,
+            makeAutoString("pgCallback"), // napi_value async_resource_name,
+            0, // size_t max_queue_size,
+            1, // size_t initial_thread_count,
+            NULL, // void* thread_finalize_data,
+            NULL, // napi_finalize thread_finalize_cb,
+            NULL, // void* context,
+            NULL, // napi_threadsafe_function_call_js call_js_cb,
+            &threadsafe_func // napi_threadsafe_function* result);
+            ));
+
+  assertok(napi_unref_threadsafe_function(env, threadsafe_func));
 
   uv_mutex_init(&gLock);
   initQueue(&waitingQueue);

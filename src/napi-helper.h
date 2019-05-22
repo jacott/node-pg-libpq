@@ -6,18 +6,22 @@
 
 #define dm(ptr, msg, fn, ln) // printf("%s:%d: %s '%p'\n", fn, ln, #msg, ptr)
 
-#define assertok(n) assert((n) == napi_ok)
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
 
+#ifdef DEBUG
 int _debugok(napi_env env, napi_status status) {
   if (status == napi_ok)
     return 1;
 
   const napi_extended_error_info* result;
-  assertok(napi_get_last_error_info(env, &result));
-  printf("ERROR %s\n", result->error_message);
+  napi_get_last_error_info(env, &result);
+  fprintf(stderr, "ERROR %s\n", result->error_message);
   return 0;
 }
-#define debugok(status) assert(_debugok(env, status))
+#define assertok(status) assert(_debugok(env, status))
+#else
+#define assertok(n) assert((n) == napi_ok)
+#endif
 
 napi_value _getRef(napi_env env, napi_ref ref) {
   napi_value result;
@@ -64,7 +68,7 @@ char* _getString(napi_env env, napi_value src) {
   size_t result;
   assertok(napi_get_value_string_utf8(env, src, NULL, 0, &result));
 
-  char* dest = calloc(1, result+1);
+  char* dest = malloc(result+1);
   assertok(napi_get_value_string_utf8(env, src, dest, result+1, &result));
 
   return dest;
