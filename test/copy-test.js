@@ -53,10 +53,19 @@ describe('copy streaming', ()=>{
 
   it("should handle nesting", done =>{
     const dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
-      assert.ifError(err);
-      if (! pg) return;
-      const dbStream2 = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
-        done(err);
+      if (pg == null || err) {done(err); return;}
+      const dbStream2 = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', async err =>{
+        try {
+          const ans = await pg.exec("select * from node_pg_test order by bar");
+          assert.deepEqual(ans, [
+            { _id: 456, foo: 'another', bar: new Date("2010-05-18T00:00:00.000Z")},
+            { _id: 123, foo: 'name', bar: new Date("2015-03-03T00:00:00.000Z") },
+            { _id: 123, foo: 'name', bar: new Date("2015-11-18T00:00:00.000Z") }
+          ]);
+          done();
+        } catch(err) {
+          done(err);
+        }
       });
       dbStream2.write('123,"name","2015-03-03"\n');
       dbStream2.end();

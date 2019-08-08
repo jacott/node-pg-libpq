@@ -64,6 +64,7 @@ void async_putCopyEnd(Conn* conn) {
 }
 
 void done_putCopyEnd(napi_env env, Conn* conn, napi_value cb_args[]) {
+  conn->copy_inprogress = false;
   PutData* putData = conn->request;
   if (putData->data != NULL) {
     free(putData->data);
