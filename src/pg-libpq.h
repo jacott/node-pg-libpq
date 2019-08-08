@@ -50,7 +50,8 @@ typedef struct {
 
 ConnQueue waitingQueue;
 
-napi_threadsafe_function threadsafe_func;
+static napi_threadsafe_function threadsafe_func;
+static int threadsafe_func_count;
 
 void initQueue(ConnQueue* queue) {
   queue->head = queue->tail = NULL;
@@ -108,6 +109,45 @@ void queueRmConn(ConnQueue* queue, Conn* conn) {
   }
   uv_mutex_unlock(&queue->lock);
 }
+
+void thread_finalize_cb(napi_env env,
+                              void* finalize_data,
+                              void* finalize_hint) {
+  threadsafe_func = NULL;
+}
+
+napi_value runCallbacks(napi_env env, napi_callback_info info);
+
+void ref_threadsafe_func(napi_env env) {
+  if (threadsafe_func == NULL) {
+    napi_value tsCallback;
+    assertok(napi_create_function(env, "runCallbacks", NAPI_AUTO_LENGTH,
+                                  runCallbacks, NULL, &tsCallback));
+
+    assertok(napi_create_threadsafe_function
+             (env, // napi_env env,
+              tsCallback, // napi_value func,
+              NULL, // napi_value async_resource,
+              makeAutoString("pgCallback"), // napi_value async_resource_name,
+              0, // size_t max_queue_size,
+              1, // size_t initial_thread_count,
+              NULL, // void* thread_finalize_data,
+              thread_finalize_cb, // napi_finalize thread_finalize_cb,
+              NULL, // void* context,
+              NULL, // napi_threadsafe_function_call_js call_js_cb,
+              &threadsafe_func // napi_threadsafe_function* result);
+              ));
+    threadsafe_func_count = 1;
+  } else if (++threadsafe_func_count == 1) {
+    assertok(napi_ref_threadsafe_function(env, threadsafe_func));
+  }
+}
+
+void unref_threadsafe_func(napi_env env) {
+  if (--threadsafe_func_count == 0)
+    assertok(napi_unref_threadsafe_function(env, threadsafe_func));
+}
+
 
 /** static values **/
 // static napi_ref sv_ref;
@@ -167,6 +207,7 @@ static void cleanup(napi_env env, Conn* conn) {
     uv_mutex_unlock(&conn->qlock);
     unlockConn(__FILE__,__LINE__);
     uv_thread_join(&conn->thread);
+    unref_threadsafe_func(env);
     dm(conn, PQfinish,__FILE__,__LINE__);
     PQfinish(conn->pq);
     conn->pq = NULL;
@@ -260,7 +301,7 @@ void async_execute(void* data) {
     conn->execute(conn);
     uv_mutex_lock(&waitingQueue.lock);
     queueAddConn(&waitingQueue, conn);
-    napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking);
+    assertok(napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking));
     uv_mutex_unlock(&waitingQueue.lock);
 
     unlockConn(__FILE__,__LINE__);
@@ -313,6 +354,7 @@ void queueJob(napi_env env, Conn* conn) {
   if (conn->pq == NULL) {
     uv_mutex_init(&conn->qlock);
     dm(conn, init,__FILE__,__LINE__);
+    ref_threadsafe_func(env);
     uv_thread_create(&conn->thread, async_execute, conn);
   } else {
     dm(conn, unlock,__FILE__,__LINE__);
