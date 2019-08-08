@@ -2,9 +2,14 @@ const PG = require('../');
 const assert = require('assert');
 
 describe('connecting', ()=>{
+  let pg = null;
+  after(()=>{
+    pg && pg.finish();
+    pg = null;
+  });
 
   it('connects using defaults', done =>{
-    const pg = new PG(err => {err && done(err)});
+    pg = new PG(err => {err && done(err)});
     pg.exec(Buffer.from("SELECT 1"), (err, res) => {
       try {
         assert.ifError(err);
@@ -19,7 +24,7 @@ describe('connecting', ()=>{
 
   it('logs callback exceptions', done =>{
     const origLog = console.log;
-    const pg = new PG(err => {err && done(err)});
+    pg = new PG(err => {err && done(err)});
     let ex;
     after(()=>{console.log = origLog});
     console.log = (arg1, arg2) =>{
@@ -36,17 +41,12 @@ describe('connecting', ()=>{
     });
   });
 
-  it('connects using tcp socket', done =>{
-    PG.connect("host=localhost password=bad sslmode=disable")
-      .then(()=>{assert(false, "should have thrown exception");})
-      .catch(err =>{
-        try {
-          assert(/password authentication failed/.test(err.message), err.message);
-          done();
-        } catch(ex) {
-          done(ex);
-        }
-      });
+  it('connects using tcp socket', async ()=>{
+    try {
+      pg = await PG.connect("host=localhost password=bad sslmode=disable");
+    } catch(err) {
+      assert(/password authentication failed/.test(err.message), err.message);
+    }
   });
 
   it('connects asynchronously', done =>{
@@ -79,6 +79,7 @@ describe('connecting', ()=>{
          other = false;
          me || done();
        } catch(ex) {
+         oPg.finish();
          done(ex);
        }
      });
