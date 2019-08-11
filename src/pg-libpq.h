@@ -116,17 +116,14 @@ void thread_finalize_cb(napi_env env,
   threadsafe_func = NULL;
 }
 
-napi_value runCallbacks(napi_env env, napi_callback_info info);
+static void runCallbacks(napi_env env, napi_value js_callback, void* context, void* data);
 
 void ref_threadsafe_func(napi_env env) {
   if (threadsafe_func == NULL) {
-    napi_value tsCallback;
-    assertok(napi_create_function(env, "runCallbacks", NAPI_AUTO_LENGTH,
-                                  runCallbacks, NULL, &tsCallback));
 
     assertok(napi_create_threadsafe_function
              (env, // napi_env env,
-              tsCallback, // napi_value func,
+              NULL, // napi_value func,
               NULL, // napi_value async_resource,
               makeAutoString("pgCallback"), // napi_value async_resource_name,
               0, // size_t max_queue_size,
@@ -134,7 +131,7 @@ void ref_threadsafe_func(napi_env env) {
               NULL, // void* thread_finalize_data,
               thread_finalize_cb, // napi_finalize thread_finalize_cb,
               NULL, // void* context,
-              NULL, // napi_threadsafe_function_call_js call_js_cb,
+              runCallbacks, // napi_threadsafe_function_call_js call_js_cb,
               &threadsafe_func // napi_threadsafe_function* result);
               ));
     threadsafe_func_count = 1;
@@ -300,8 +297,9 @@ void async_execute(void* data) {
     }
     conn->execute(conn);
     uv_mutex_lock(&waitingQueue.lock);
+    if (waitingQueue.head == NULL)
+      assertok(napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking));
     queueAddConn(&waitingQueue, conn);
-    assertok(napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking));
     uv_mutex_unlock(&waitingQueue.lock);
 
     unlockConn(__FILE__,__LINE__);
@@ -342,12 +340,11 @@ void async_complete(napi_env env, napi_status status, void* data) {
   assertok(napi_call_function(env, getGlobal(), callback, 2, cb_args, &result));
 }
 
-napi_value runCallbacks(napi_env env, napi_callback_info info) {
+static void runCallbacks(napi_env env, napi_value js_callback, void* context, void* data) {
   Conn* conn;
   while((conn = queueRmHead(&waitingQueue))) {
     async_complete(env, 0, conn);
   }
-  return NULL;
 }
 
 void queueJob(napi_env env, Conn* conn) {
