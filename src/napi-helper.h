@@ -4,9 +4,10 @@
 #include <string.h>
 #include <stdio.h>
 
-#define dm(ptr, msg, fn, ln) // printf("%s:%d: %s '%p'\n", fn, ln, #msg, ptr)
+#define dm(ptr, msg) // printf("%s:%d: %s '%p'\n", __FILE__, __LINE__, #msg, ptr)
 
-#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#define LOG(s, ...) fprintf(stderr, "%s:%d: DEBUG " s, __FILE__, __LINE__, ## __VA_ARGS__)
+// #define LOG(...) fprintf(stderr, __VA_ARGS__)
 
 //#define DEBUG 1
 #ifdef DEBUG

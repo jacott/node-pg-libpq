@@ -33,8 +33,8 @@ struct Conn {
 uv_mutex_t gLock;
 
 
-#define lockConn(fn, ln) {uv_mutex_lock(&gLock);}
-#define unlockConn(fn, ln) {uv_mutex_unlock(&gLock);}
+#define lockConn() {uv_mutex_lock(&gLock);}
+#define unlockConn() {uv_mutex_unlock(&gLock);}
 
 typedef struct NextConn NextConn;
 
@@ -154,7 +154,7 @@ static void freeCallbackRef(napi_env env, Conn* conn) {
 }
 
 static void cleanup(napi_env env, Conn* conn) {
-  lockConn(__FILE__,__LINE__);
+  lockConn();
   if (conn->state == PGLIBPQ_STATE_CLOSED) return;
 
   conn->state = PGLIBPQ_STATE_CLOSED;
@@ -162,17 +162,17 @@ static void cleanup(napi_env env, Conn* conn) {
   freeCallbackRef(env, conn);
   clearResult(conn);
   if (conn->pq != NULL) {
-    dm(conn, unlock,__FILE__,__LINE__);
+    dm(conn, unlock);
     uv_mutex_unlock(&conn->qlock);
-    unlockConn(__FILE__,__LINE__);
+    unlockConn();
     uv_thread_join(&conn->thread);
     unref_threadsafe_func(env);
-    dm(conn, PQfinish,__FILE__,__LINE__);
+    dm(conn, PQfinish);
     PQfinish(conn->pq);
     conn->pq = NULL;
-    dm(conn, unlock,__FILE__,__LINE__);
+    dm(conn, unlock);
     uv_mutex_unlock(&conn->qlock);
-    dm(conn, destroy,__FILE__,__LINE__);
+    dm(conn, destroy);
     uv_mutex_destroy(&conn->qlock);
   }
 }
@@ -249,12 +249,12 @@ static napi_value convertResult(napi_env env, Conn* conn) {
 static void async_execute(void* data) {
   Conn* conn = data;
   while(true) {
-    dm(conn, lock,__FILE__,__LINE__);
+    dm(conn, lock);
     uv_mutex_lock(&conn->qlock);
-    dm(conn, **,__FILE__,__LINE__);
-    lockConn(__FILE__,__LINE__);
+    dm(conn, **);
+    lockConn();
     if (conn->state != PGLIBPQ_STATE_BUSY) {
-      unlockConn(__FILE__,__LINE__);
+      unlockConn();
       return;
     }
     conn->execute(conn);
@@ -264,13 +264,13 @@ static void async_execute(void* data) {
     queueAddConn(&waitingQueue, conn);
     uv_mutex_unlock(&waitingQueue.lock);
 
-    unlockConn(__FILE__,__LINE__);
+    unlockConn();
   }
 }
 
 void async_complete(napi_env env, napi_status status, void* data) {
   Conn* conn = data;
-  lockConn(__FILE__,__LINE__);
+  lockConn();
   bool isAbort = conn->state == PGLIBPQ_STATE_ABORT;
 
   const napi_value null = getNull();
@@ -292,12 +292,12 @@ void async_complete(napi_env env, napi_status status, void* data) {
   freeCallbackRef(env, conn);
 
   if (isAbort) {
-    dm(conn, isAbort,__FILE__,__LINE__);
-    unlockConn(__FILE__,__LINE__);
+    dm(conn, isAbort);
+    unlockConn();
     cleanup(env, conn);
   } else {
     conn->state = PGLIBPQ_STATE_READY;
-    unlockConn(__FILE__,__LINE__);
+    unlockConn();
   }
   assertok(napi_call_function(env, getGlobal(), callback, 2, cb_args, &result));
 }
@@ -312,11 +312,11 @@ static void runCallbacks(napi_env env, napi_value js_callback, void* context, vo
 static void queueJob(napi_env env, Conn* conn) {
   if (conn->pq == NULL) {
     uv_mutex_init(&conn->qlock);
-    dm(conn, init,__FILE__,__LINE__);
+    dm(conn, init);
     ref_threadsafe_func(env);
     uv_thread_create(&conn->thread, async_execute, conn);
   } else {
-    dm(conn, unlock,__FILE__,__LINE__);
+    dm(conn, unlock);
     uv_mutex_unlock(&conn->qlock);
   }
 }
@@ -326,7 +326,7 @@ static napi_value runAsync(napi_env env, napi_callback_info info,
                     conn_async_init init, conn_async_execute execute,
                     conn_async_complete complete) {
   getConn();
-  lockConn(__FILE__,__LINE__);
+  lockConn();
   ASSERT_STATE(conn, READY);
   conn->state = PGLIBPQ_STATE_BUSY;
   clearResult(conn);
@@ -342,7 +342,7 @@ static napi_value runAsync(napi_env env, napi_callback_info info,
 
   queueJob(env, conn);
 
-  unlockConn(__FILE__,__LINE__);
+  unlockConn();
   return result;
 }
 

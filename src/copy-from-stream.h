@@ -29,10 +29,10 @@ static napi_value init_putCopyData(napi_env env, napi_callback_info info,
 static void async_putCopyData(Conn* conn) {
   PutData *putData = conn->request;
   PGconn* pq = conn->pq;
-  unlockConn(__FILE__,__LINE__);
+  unlockConn();
   if (PQputCopyData(pq, putData->data, putData->length) == -1)
     putData->error = PQerrorMessage(pq);
-  lockConn(__FILE__,__LINE__);
+  lockConn();
 }
 
 static void done_putCopyData(napi_env env, Conn* conn, napi_value cb_args[]) {
@@ -57,10 +57,10 @@ static napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
 static void async_putCopyEnd(Conn* conn) {
   PutData* putData = conn->request;
   PGconn* pq = conn->pq;
-  unlockConn(__FILE__,__LINE__);
+  unlockConn();
   if (PQputCopyEnd(pq, putData->data) == -1)
     putData->error = PQerrorMessage(pq);
-  lockConn(__FILE__,__LINE__);
+  lockConn();
 }
 
 static void done_putCopyEnd(napi_env env, Conn* conn, napi_value cb_args[]) {

@@ -42,17 +42,17 @@ static napi_value init_connectDB(napi_env env, napi_callback_info info,
 
 static void async_connectDB(Conn* conn) {
   void* request = conn->request;
-  dm(conn, connectDB,__FILE__,__LINE__);
-  unlockConn(__FILE__,__LINE__);
+  dm(conn, connectDB);
+  unlockConn();
   PGconn* pq = PQconnectdb(request);
-  lockConn(__FILE__,__LINE__);
+  lockConn();
   if (conn->state != PGLIBPQ_STATE_BUSY)
     return;
   conn->pq = pq;
   if (PQstatus(pq) == CONNECTION_OK) {
     PQsetClientEncoding(conn->pq, "utf-8");
   } else {
-    dm(conn, connectDBFailed, __FILE__,__LINE__);
+    dm(conn, connectDBFailed);
     conn->state = PGLIBPQ_STATE_ERROR;
   }
 }
@@ -116,14 +116,14 @@ static napi_value init_execParams(napi_env env, napi_callback_info info,
 static void async_execParams(Conn* conn) {
   ExecArgs* args = conn->request;
   PGconn* pq = conn->pq;
-  unlockConn(__FILE__,__LINE__);
+  unlockConn();
   if (args->params == NULL)
     conn->result = PQexec(pq, args->cmd);
   else
     conn->result = PQexecParams(pq, args->cmd,
                                 args->paramsLen, NULL, (const char* const*)args->params,
                                 NULL, NULL, 0);
-  lockConn(__FILE__,__LINE__);
+  lockConn();
 }
 
 static void done_execParams(napi_env env, Conn* conn, napi_value cb_args[]) {
@@ -144,9 +144,9 @@ static napi_value init_prepare(napi_env env, napi_callback_info info,
 static void async_prepare(Conn* conn) {
   ExecArgs* args = conn->request;
   PGconn* pq = conn->pq;
-  unlockConn(__FILE__,__LINE__);
+  unlockConn();
   conn->result = PQprepare(pq, args->name, args->cmd, 0, NULL);
-  lockConn(__FILE__,__LINE__);
+  lockConn();
 }
 
 #define done_prepare done_execParams
@@ -165,11 +165,11 @@ static napi_value init_execPrepared(napi_env env, napi_callback_info info,
 static void async_execPrepared(Conn* conn) {
   ExecArgs* args = conn->request;
   PGconn* pq = conn->pq;
-  unlockConn(__FILE__,__LINE__);
+  unlockConn();
   conn->result = PQexecPrepared(pq, args->name,
                                 args->paramsLen, (const char* const*)args->params,
                                 NULL, NULL, 0);
-  lockConn(__FILE__,__LINE__);
+  lockConn();
 }
 #define done_execPrepared done_execParams
 defAsync(execPrepared, 3)
@@ -219,16 +219,16 @@ static char* cancel(Conn* conn) {
 static napi_value finish(napi_env env, napi_callback_info info) {
   uv_mutex_lock(&waitingQueue.lock);
   getConn();
-  lockConn(__FILE__,__LINE__);
-  dm(conn, finish, __FILE__,__LINE__);
+  lockConn();
+  dm(conn, finish);
   if (conn->state == PGLIBPQ_STATE_BUSY || conn->copy_inprogress) {
     conn->state = PGLIBPQ_STATE_ABORT;
     char* errMsg = cancel(conn);
     if (errMsg) free(errMsg);
-    unlockConn(__FILE__,__LINE__);
+    unlockConn();
   } else {
     ASSERT_STATE(conn, READY);
-    unlockConn(__FILE__,__LINE__);
+    unlockConn();
     cleanup(env, conn);
   }
   uv_mutex_unlock(&waitingQueue.lock);
