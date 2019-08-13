@@ -2,29 +2,29 @@ typedef napi_value (*transformer)(napi_env env, char *text, int len);
 
 #define MAX_INT_LEN 15
 
-napi_value convertBoolean(napi_env env,  char *text, int len) {
+static napi_value convertBoolean(napi_env env,  char *text, int len) {
   return makeBoolean(text[0] == 't');
 }
 
-napi_value convertInt(napi_env env,  char *text, int len) {
+static napi_value convertInt(napi_env env,  char *text, int len) {
   return len > MAX_INT_LEN ? makeString(text, len) : makeInt(atoll(text));
 }
 
-napi_value convertDouble(napi_env env,  char *text, int len) {
+static napi_value convertDouble(napi_env env,  char *text, int len) {
   return makeDouble(atof(text));
 }
 
-napi_value convertText(napi_env env,  char *text, int len) {
+static napi_value convertText(napi_env env,  char *text, int len) {
   napi_value result;
   assertok(napi_create_string_utf8(env, text, len, &result));
   return result;
 }
 
-u_char htod(char h) {
+static u_char htod(char h) {
   return h < ':' ? h - '0' : h - 'W';
 }
 
-napi_value convertBytea(napi_env env, char *text, int len) {
+static napi_value convertBytea(napi_env env, char *text, int len) {
   size_t i;
   size_t size = (len >> 1)-1;
   u_char* data;
@@ -37,7 +37,7 @@ napi_value convertBytea(napi_env env, char *text, int len) {
   return result;
 }
 
-int unQuote(char *text, int len) {
+static int unQuote(char *text, int len) {
   int i, src = 0;
   for(i = 1; i < len-1; ++i) {
     text[src++] = text[text[i] == '\\' ? ++i : i];
@@ -50,7 +50,7 @@ typedef struct {
   int pos;
 } arrayAndPos;
 
-arrayAndPos _convertArray(napi_env env, transformer t, char *text, int len) {
+static arrayAndPos _convertArray(napi_env env, transformer t, char *text, int len) {
   int ep;
   napi_value result;
   const napi_value nullv = getNull();
@@ -105,11 +105,11 @@ arrayAndPos _convertArray(napi_env env, transformer t, char *text, int len) {
   return ans;
 }
 
-napi_value convertArray(napi_env env, transformer t, char *text, int len) {
+static napi_value convertArray(napi_env env, transformer t, char *text, int len) {
   return _convertArray(env, t, text, len).result;
 }
 
-napi_value convert(napi_env env, Oid type, char *text, int len) {
+static napi_value convert(napi_env env, Oid type, char *text, int len) {
   if (type < 143) {
     switch(type) {
     case 25:

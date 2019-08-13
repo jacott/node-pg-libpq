@@ -48,17 +48,17 @@ typedef struct {
   uv_mutex_t lock;
 } ConnQueue;
 
-ConnQueue waitingQueue;
+static ConnQueue waitingQueue;
 
 static napi_threadsafe_function threadsafe_func;
 static int threadsafe_func_count;
 
-void initQueue(ConnQueue* queue) {
+static void initQueue(ConnQueue* queue) {
   queue->head = queue->tail = NULL;
   uv_mutex_init(&queue->lock);
 }
 
-void queueAddConn(ConnQueue* queue, Conn* conn) {
+static void queueAddConn(ConnQueue* queue, Conn* conn) {
   NextConn* node = malloc(sizeof(NextConn));
   node->conn = conn;
   node->next = NULL;
@@ -70,7 +70,7 @@ void queueAddConn(ConnQueue* queue, Conn* conn) {
   }
 }
 
-Conn* queueRmHead(ConnQueue* queue) {
+static Conn* queueRmHead(ConnQueue* queue) {
   Conn* conn = NULL;
   uv_mutex_lock(&queue->lock);
   NextConn* node = queue->head;
@@ -85,32 +85,7 @@ Conn* queueRmHead(ConnQueue* queue) {
   return conn;
 }
 
-void queueRmNode(ConnQueue* queue, NextConn* node, NextConn* prev) {
-  NextConn* next = node->next;
-  if (prev == NULL) {
-    queue->head = next;
-  } else {
-    prev->next = next;
-  }
-  if (next == NULL) {
-    queue->tail = prev;
-  }
-  free(node);
-}
-
-void queueRmConn(ConnQueue* queue, Conn* conn) {
-  NextConn* prev = NULL;
-  uv_mutex_lock(&queue->lock);
-  for(NextConn* node = queue->head; node; prev = node, node = node->next) {
-    if (node->conn == conn) {
-      queueRmNode(queue, node, prev);
-      break;
-    }
-  }
-  uv_mutex_unlock(&queue->lock);
-}
-
-void thread_finalize_cb(napi_env env,
+static void thread_finalize_cb(napi_env env,
                               void* finalize_data,
                               void* finalize_hint) {
   threadsafe_func = NULL;
@@ -118,7 +93,7 @@ void thread_finalize_cb(napi_env env,
 
 static void runCallbacks(napi_env env, napi_value js_callback, void* context, void* data);
 
-void ref_threadsafe_func(napi_env env) {
+static void ref_threadsafe_func(napi_env env) {
   if (threadsafe_func == NULL) {
 
     assertok(napi_create_threadsafe_function
@@ -140,24 +115,10 @@ void ref_threadsafe_func(napi_env env) {
   }
 }
 
-void unref_threadsafe_func(napi_env env) {
+static void unref_threadsafe_func(napi_env env) {
   if (--threadsafe_func_count == 0)
     assertok(napi_unref_threadsafe_function(env, threadsafe_func));
 }
-
-
-/** static values **/
-// static napi_ref sv_ref;
-
-typedef enum {
-  sv_max,
-} sv_prop;
-
-/* napi_value _sref(napi_env env, sv_prop index) { */
-/*   return getValue(getRef(sv_ref), index); */
-/* } */
-/* #define srefValue(index) _sref(env, index) */
-
 
 #define PGLIBPQ_STATE_ABORT -2
 #define PGLIBPQ_STATE_ERROR -1
@@ -165,7 +126,7 @@ typedef enum {
 #define PGLIBPQ_STATE_READY 1
 #define PGLIBPQ_STATE_BUSY 2
 
-void throwStateError(napi_env env, const char* expect) {
+static void throwStateError(napi_env env, const char* expect) {
   char buf[200];
   sprintf(buf, "Unexpected state; expecting %s", expect);
   assertok(napi_throw_error(env, "PGLIBPQ_STATE_ERROR", buf));
@@ -177,7 +138,7 @@ void throwStateError(napi_env env, const char* expect) {
     return NULL;                                \
   }
 
-void clearResult(Conn* conn) {
+static void clearResult(Conn* conn) {
   if (conn->result != NULL) {
     PQclear(conn->result);
     conn->result = NULL;
@@ -215,7 +176,7 @@ static void cleanup(napi_env env, Conn* conn) {
   }
 }
 
-Conn* _getConn(napi_env env, napi_callback_info info) {
+static Conn* _getConn(napi_env env, napi_callback_info info) {
   napi_value jsthis;
   assertok(napi_get_cb_info(env, info, NULL, NULL, &jsthis, NULL));
 
@@ -226,7 +187,7 @@ Conn* _getConn(napi_env env, napi_callback_info info) {
 }
 #define getConn() Conn* conn = _getConn(env, info);
 
-napi_value convertResult(napi_env env, Conn* conn) {
+static napi_value convertResult(napi_env env, Conn* conn) {
   PGresult* value = conn->result;
   const napi_value null = getNull();
   if (value == NULL) return null;
@@ -284,7 +245,7 @@ napi_value convertResult(napi_env env, Conn* conn) {
 }
 
 
-void async_execute(void* data) {
+static void async_execute(void* data) {
   Conn* conn = data;
   while(true) {
     dm(conn, lock,__FILE__,__LINE__);
@@ -347,7 +308,7 @@ static void runCallbacks(napi_env env, napi_value js_callback, void* context, vo
   }
 }
 
-void queueJob(napi_env env, Conn* conn) {
+static void queueJob(napi_env env, Conn* conn) {
   if (conn->pq == NULL) {
     uv_mutex_init(&conn->qlock);
     dm(conn, init,__FILE__,__LINE__);
@@ -359,7 +320,7 @@ void queueJob(napi_env env, Conn* conn) {
   }
 }
 
-napi_value runAsync(napi_env env, napi_callback_info info,
+static napi_value runAsync(napi_env env, napi_callback_info info,
                     char* name, size_t argc,
                     conn_async_init init, conn_async_execute execute,
                     conn_async_complete complete) {

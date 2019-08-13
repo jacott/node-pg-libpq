@@ -1,12 +1,12 @@
 #include "pg-libpq.h"
 
-void Conn_destructor(napi_env env, void* nativeObject, void* finalize_hint) {
+static void Conn_destructor(napi_env env, void* nativeObject, void* finalize_hint) {
   Conn* conn = nativeObject;
   napi_delete_reference(env, conn->wrapper_);
   free(conn);
 }
 
-napi_value Conn_constructor(napi_env env, napi_callback_info info) {
+static napi_value Conn_constructor(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value args[1];
   napi_value jsthis;
@@ -33,14 +33,14 @@ napi_value Conn_constructor(napi_env env, napi_callback_info info) {
   return jsthis;
 }
 
-napi_value init_connectDB(napi_env env, napi_callback_info info,
+static napi_value init_connectDB(napi_env env, napi_callback_info info,
                           Conn* conn, size_t argc, napi_value args[]) {
   assert(conn->pq == NULL);
   conn->request = getString(args[0]);
   return NULL;
 }
 
-void async_connectDB(Conn* conn) {
+static void async_connectDB(Conn* conn) {
   void* request = conn->request;
   dm(conn, connectDB,__FILE__,__LINE__);
   unlockConn(__FILE__,__LINE__);
@@ -57,7 +57,7 @@ void async_connectDB(Conn* conn) {
   }
 }
 
-void done_connectDB(napi_env env, Conn* conn, napi_value cb_args[]) {
+static void done_connectDB(napi_env env, Conn* conn, napi_value cb_args[]) {
   if (conn->state == PGLIBPQ_STATE_ERROR)
     cb_args[0] = makeError(PQerrorMessage(conn->pq));
 }
@@ -71,7 +71,7 @@ typedef struct {
   char* name;
 } ExecArgs;
 
-void loadExecArgs(napi_env env, Conn* conn, napi_value cmdv, napi_value paramsv, napi_value namev) {
+static void loadExecArgs(napi_env env, Conn* conn, napi_value cmdv, napi_value paramsv, napi_value namev) {
   uint32_t i;
   ExecArgs* ea = calloc(1, sizeof(ExecArgs));
   conn->request = ea;
@@ -89,7 +89,7 @@ void loadExecArgs(napi_env env, Conn* conn, napi_value cmdv, napi_value paramsv,
   }
 }
 
-void freeExecArgs(napi_env env, Conn* conn) {
+static void freeExecArgs(napi_env env, Conn* conn) {
   uint32_t i;
   ExecArgs* args = conn->request;
   if (args->cmd != NULL) free(args->cmd);
@@ -105,7 +105,7 @@ void freeExecArgs(napi_env env, Conn* conn) {
   }
 }
 
-napi_value init_execParams(napi_env env, napi_callback_info info,
+static napi_value init_execParams(napi_env env, napi_callback_info info,
                            Conn* conn, size_t argc, napi_value args[]) {
   loadExecArgs(env, conn,
                argc > 0 ? args[0] : NULL,
@@ -113,7 +113,7 @@ napi_value init_execParams(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void async_execParams(Conn* conn) {
+static void async_execParams(Conn* conn) {
   ExecArgs* args = conn->request;
   PGconn* pq = conn->pq;
   unlockConn(__FILE__,__LINE__);
@@ -126,13 +126,13 @@ void async_execParams(Conn* conn) {
   lockConn(__FILE__,__LINE__);
 }
 
-void done_execParams(napi_env env, Conn* conn, napi_value cb_args[]) {
+static void done_execParams(napi_env env, Conn* conn, napi_value cb_args[]) {
   freeExecArgs(env, conn);
 }
 
 defAsync(execParams, 3)
 
-napi_value init_prepare(napi_env env, napi_callback_info info,
+static napi_value init_prepare(napi_env env, napi_callback_info info,
                         Conn* conn, size_t argc, napi_value args[]) {
   loadExecArgs(env, conn,
                argc > 1 ? args[1] : NULL,
@@ -141,7 +141,7 @@ napi_value init_prepare(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void async_prepare(Conn* conn) {
+static void async_prepare(Conn* conn) {
   ExecArgs* args = conn->request;
   PGconn* pq = conn->pq;
   unlockConn(__FILE__,__LINE__);
@@ -153,7 +153,7 @@ void async_prepare(Conn* conn) {
 
 defAsync(prepare, 3)
 
-napi_value init_execPrepared(napi_env env, napi_callback_info info,
+static napi_value init_execPrepared(napi_env env, napi_callback_info info,
                              Conn* conn, size_t argc, napi_value args[]) {
   loadExecArgs(env, conn,
                NULL,
@@ -161,7 +161,8 @@ napi_value init_execPrepared(napi_env env, napi_callback_info info,
                argc > 0 ? args[0] : NULL);
   return NULL;
 }
-void async_execPrepared(Conn* conn) {
+
+static void async_execPrepared(Conn* conn) {
   ExecArgs* args = conn->request;
   PGconn* pq = conn->pq;
   unlockConn(__FILE__,__LINE__);
@@ -175,7 +176,7 @@ defAsync(execPrepared, 3)
 
 #include "copy-from-stream.h"
 
-napi_value escapeLiteral(napi_env env, napi_callback_info info) {
+static napi_value escapeLiteral(napi_env env, napi_callback_info info) {
   getConn();
   getArgs(1);
   char* str = getString(args[0]);
@@ -184,7 +185,7 @@ napi_value escapeLiteral(napi_env env, napi_callback_info info) {
   return result;
 }
 
-napi_value resultErrorField(napi_env env, napi_callback_info info) {
+static napi_value resultErrorField(napi_env env, napi_callback_info info) {
   getConn();
   size_t argc = 1;
   napi_value args[argc];
@@ -198,7 +199,7 @@ napi_value resultErrorField(napi_env env, napi_callback_info info) {
     return getNull();
 }
 
-char* cancel(Conn* conn) {
+static char* cancel(Conn* conn) {
   conn->copy_inprogress = false;
   PGcancel* handle = PQgetCancel(conn->pq);
   if (handle) {
@@ -215,7 +216,7 @@ char* cancel(Conn* conn) {
   return NULL;
 }
 
-napi_value finish(napi_env env, napi_callback_info info) {
+static napi_value finish(napi_env env, napi_callback_info info) {
   uv_mutex_lock(&waitingQueue.lock);
   getConn();
   lockConn(__FILE__,__LINE__);
@@ -235,7 +236,7 @@ napi_value finish(napi_env env, napi_callback_info info) {
   return NULL;
 }
 
-napi_value isReady(napi_env env, napi_callback_info info) {
+static napi_value isReady(napi_env env, napi_callback_info info) {
   getConn();
   return makeBoolean(conn->state == PGLIBPQ_STATE_READY &&
                      ! conn->copy_inprogress);
@@ -245,14 +246,14 @@ napi_value isReady(napi_env env, napi_callback_info info) {
 #define defFunc(func) {#func, 0, func, 0, 0, 0, napi_default, 0}
 #define defValue(name, value) {#name, 0, 0, 0, 0, value, napi_default, 0}
 
-void _addStatic(napi_env env, napi_value object, char* name, napi_callback func) {
-  napi_value result;
-  assertok(napi_create_function(env, name, NAPI_AUTO_LENGTH, func, NULL, &result));
-  assertok(napi_set_named_property(env, object, name, result));
-}
-#define addStatic(object, name) _addStatic(env, object, # name, name);
+/* static void _addStatic(napi_env env, napi_value object, char* name, napi_callback func) { */
+/*   napi_value result; */
+/*   assertok(napi_create_function(env, name, NAPI_AUTO_LENGTH, func, NULL, &result)); */
+/*   assertok(napi_set_named_property(env, object, name, result)); */
+/* } */
+/* #define addStatic(object, name) _addStatic(env, object, # name, name); */
 
-napi_value Init(napi_env env, napi_value exports) {
+static napi_value Init(napi_env env, napi_value exports) {
   napi_value PG;
   napi_property_descriptor properties[] = {
     defFunc(connectDB),
@@ -275,7 +276,6 @@ napi_value Init(napi_env env, napi_value exports) {
                              (size_t)sizeof(properties)/sizeof(napi_property_descriptor),
                              properties,
                              &PG));
-
 
   uv_mutex_init(&gLock);
   initQueue(&waitingQueue);

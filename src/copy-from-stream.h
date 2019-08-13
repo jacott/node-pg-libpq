@@ -1,4 +1,4 @@
-napi_value init_copyFromStream(napi_env env, napi_callback_info info,
+static napi_value init_copyFromStream(napi_env env, napi_callback_info info,
                                Conn* conn, size_t argc, napi_value args[]) {
   conn->copy_inprogress = true;
   return init_execParams(env, info, conn, argc, args);
@@ -14,7 +14,7 @@ typedef struct {
   char* error;
 } PutData;
 
-napi_value init_putCopyData(napi_env env, napi_callback_info info,
+static napi_value init_putCopyData(napi_env env, napi_callback_info info,
                             Conn* conn, size_t argc, napi_value args[]) {
   PutData *putData = calloc(1, sizeof(PutData));
   assertok(napi_create_reference(env, args[0], 1, &putData->ref));
@@ -26,7 +26,7 @@ napi_value init_putCopyData(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void async_putCopyData(Conn* conn) {
+static void async_putCopyData(Conn* conn) {
   PutData *putData = conn->request;
   PGconn* pq = conn->pq;
   unlockConn(__FILE__,__LINE__);
@@ -35,7 +35,7 @@ void async_putCopyData(Conn* conn) {
   lockConn(__FILE__,__LINE__);
 }
 
-void done_putCopyData(napi_env env, Conn* conn, napi_value cb_args[]) {
+static void done_putCopyData(napi_env env, Conn* conn, napi_value cb_args[]) {
   PutData* putData = conn->request;
   if (putData->ref != NULL) napi_delete_reference(env, putData->ref);
   if (putData->error != NULL) cb_args[0] = makeError(putData->error);
@@ -44,7 +44,7 @@ void done_putCopyData(napi_env env, Conn* conn, napi_value cb_args[]) {
 defAsync(putCopyData, 2)
 
 
-napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
+static napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
                            Conn* conn, size_t argc, napi_value args[]) {
   PutData *putData =  calloc(1, sizeof(PutData));
   if (argc > 1 && jsType(args[0]) == napi_string) {
@@ -54,7 +54,7 @@ napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
   return NULL;
 }
 
-void async_putCopyEnd(Conn* conn) {
+static void async_putCopyEnd(Conn* conn) {
   PutData* putData = conn->request;
   PGconn* pq = conn->pq;
   unlockConn(__FILE__,__LINE__);
@@ -63,7 +63,7 @@ void async_putCopyEnd(Conn* conn) {
   lockConn(__FILE__,__LINE__);
 }
 
-void done_putCopyEnd(napi_env env, Conn* conn, napi_value cb_args[]) {
+static void done_putCopyEnd(napi_env env, Conn* conn, napi_value cb_args[]) {
   conn->copy_inprogress = false;
   PutData* putData = conn->request;
   if (putData->data != NULL) {
