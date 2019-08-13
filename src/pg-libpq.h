@@ -1,6 +1,7 @@
 #include "napi-helper.h"
 #include <uv.h>
 
+#include <time.h>
 #include <libpq-fe.h>
 #include <pg_config.h>
 #include "convert.h"
@@ -259,7 +260,7 @@ static void async_execute(void* data) {
     conn->execute(conn);
     uv_mutex_lock(&waitingQueue.lock);
     if (waitingQueue.head == NULL)
-      assertok(napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking));
+      napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking);
     queueAddConn(&waitingQueue, conn);
     uv_mutex_unlock(&waitingQueue.lock);
 

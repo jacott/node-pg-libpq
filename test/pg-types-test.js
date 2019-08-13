@@ -125,7 +125,30 @@ describe('return types', ()=>{
     assert.deepStrictEqual(await selectType(pg, 'jsonb[]', '{"{\\"a\\": 1}","{\\"b\\": 2}"}'), [{a: 1}, {b: 2}]);
   });
 
+  const assertDate = async (n, txt)=>{
+    const d = new Date(n);
+    assert.equal(+(await selectType(pg, 'timestamp', d)), +d);
+    assert.equal((await selectType(pg, 'text', d)), txt);
+  };
+
+  it('should convert infinity dates', async ()=>{
+    assert.equal((await selectType(pg, 'date', 'Infinity')),
+                Infinity);
+
+    assert.equal((await selectType(pg, 'date', '-Infinity')),
+                -Infinity);
+  });
+
   it('should convert dates', async ()=>{
+    const year0 = -62135596800000;
+
+    await assertDate(year0, '0001-01-01T00:00:00.000Z');
+    await assertDate(year0, '0001-01-01T00:00:00.000Z');
+    await assertDate(year0 + 1, '0001-01-01T00:00:00.001Z');
+    await assertDate(year0 - 1, '0001-12-31T23:59:59.999 BC');
+    await assertDate(0, '1970-01-01T00:00:00.000Z');
+    await assertDate(-1, '1969-12-31T23:59:59.999Z');
+
     assert.equal((await selectType(pg, 'date', new Date(Date.UTC(2015, 6, 5)))).toISOString(),
                  '2015-07-05T00:00:00.000Z');
 
@@ -138,22 +161,26 @@ describe('return types', ()=>{
                         new Date(Date.UTC(2016, 11, 24, 20, 58, 45, 123))))
         .toISOString(), "2016-12-24T20:58:45.123Z");
 
+    assert.deepStrictEqual(
+      (await selectType(pg, 'timestamp[]',
+                        '{"2016-12-24T20:58:45.123Z","2015-12-24T20:58:45.123Z","January 8, 99 bc"}'))
+        .map(d => +d === +d ? d.toISOString() : d),
+      ["2016-12-24T20:58:45.123Z", "2015-12-24T20:58:45.123Z", "-000098-01-08T00:00:00.000Z"]);
+  });
+
+  it('should convert timestamp with zone', async ()=>{
+    await pg.exec("set timezone to 'NZ'");
+
     assert.equal(
       (await selectType(pg, 'timestamptz',
                         new Date(Date.UTC(2016, 11, 24, 20, 58, 45, 123))))
         .toISOString(), "2016-12-24T20:58:45.123Z");
-
-    assert.deepStrictEqual(
-      (await selectType(pg, 'timestamp[]',
-                        '{2016-12-24T20:58:45.123Z,2015-12-24T20:58:45.123Z,"January 8, 99 bc"}'))
-        .map(d => +d === +d ? d.toISOString() : d),
-      ["2016-12-24T20:58:45.123Z", "2015-12-24T20:58:45.123Z", "-000099-01-08T00:00:00.000Z"]);
-
     assert.deepStrictEqual(
       (await selectType(pg, 'timestamptz[]',
                         '{"January 8, 99 bc 20:57:45.123Z", "January 8, 1299 bc 20:57:45 NZDT"}'))
         .map(d => +d === +d ? d.toISOString() : d),
-      ['-000099-01-08T20:57:45.123Z', '-001299-01-08T07:57:45.000Z']);
+      ['-000098-01-08T20:57:45.123Z', '-001298-01-08T07:57:45.000Z']);
+
   });
 
   it('should return arrays', async ()=>{
