@@ -73,8 +73,12 @@ static napi_value convertDate(napi_env env,  char *text, int len) {
   }
 
   int ms = 0;
-  if (i == 6 && pos < len && text[pos-1] == '.')
-    pos = read_tm_part(text, len, pos, &ms);
+  if (i == 6 && pos < len && text[pos-1] == '.') {
+    npos = read_tm_part(text, len, pos, &ms);
+    if (pos + 1 == npos) ms *= 100;
+    else if (pos + 2 == npos) ms *= 10;
+    pos = npos;
+  }
   else
     --pos;
 
