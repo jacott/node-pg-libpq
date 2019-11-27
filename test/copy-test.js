@@ -7,9 +7,8 @@ describe('copy streaming', ()=>{
   beforeEach(done =>{
     pg = new PG(err =>{
       if (err) done(err);
-      pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar date)",  (err, count)=>{
-        done(err);
-      });
+      else pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar date)",
+                   done);
     });
   });
 

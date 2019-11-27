@@ -27,9 +27,9 @@ describe('connecting', ()=>{
     pg = new PG(err => {err && done(err)});
     let ex;
     after(()=>{console.log = origLog});
-    console.log = (arg1, arg2) =>{
+    console.error = (arg1, arg2) =>{
       try {
-        assert.equal(arg1, 'Unhandled Exception');
+        assert.equal(arg1, 'Unhandled Error');
         assert.equal(arg2, ex);
         done();
       } catch(ex2) {

@@ -3,9 +3,9 @@ const assert = require('assert');
 
 describe('crud', ()=>{
   let pg;
-  before(async ()=>{
-    pg = await PG.connect("host=/var/run/postgresql");
-    await pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar jsonb, baz date)");
+  before(()=>{
+    pg = new PG("host=/var/run/postgresql");
+    pg.exec("CREATE TEMPORARY TABLE node_pg_test (_id integer, foo text, bar jsonb, baz date)");
   });
 
   after(()=>{
@@ -14,7 +14,7 @@ describe('crud', ()=>{
   });
 
   afterEach(async ()=>{
-    pg && await pg.exec("truncate node_pg_test");
+    await pg.exec("truncate node_pg_test");
   });
 
   it('should count updates and deletes', async ()=>{
