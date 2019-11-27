@@ -1,11 +1,10 @@
 static napi_value init_copyFromStream(napi_env env, napi_callback_info info,
                                Conn* conn, size_t argc, napi_value args[]) {
-  conn->copy_inprogress = true;
   return init_execParams(env, info, conn, argc, args);
 }
 #define async_copyFromStream async_execParams
 #define done_copyFromStream done_execParams
-defAsync(copyFromStream, 3)
+defAsync(copyFromStream, 3);
 
 typedef struct {
   void *data;
@@ -41,7 +40,7 @@ static void done_putCopyData(napi_env env, Conn* conn, napi_value cb_args[]) {
   if (putData->error != NULL) cb_args[0] = makeError(putData->error);
 }
 
-defAsync(putCopyData, 2)
+defAsync(putCopyData, 2);
 
 
 static napi_value init_putCopyEnd(napi_env env, napi_callback_info info,
@@ -64,7 +63,7 @@ static void async_putCopyEnd(Conn* conn) {
 }
 
 static void done_putCopyEnd(napi_env env, Conn* conn, napi_value cb_args[]) {
-  conn->copy_inprogress = false;
+  conn->copy_inprogress = 0;
   PutData* putData = conn->request;
   if (putData->data != NULL) {
     free(putData->data);
@@ -74,4 +73,4 @@ static void done_putCopyEnd(napi_env env, Conn* conn, napi_value cb_args[]) {
 }
 
 
-defAsync(putCopyEnd, 2)
+defAsync(putCopyEnd, 2);

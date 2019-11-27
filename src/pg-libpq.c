@@ -62,7 +62,7 @@ static void done_connectDB(napi_env env, Conn* conn, napi_value cb_args[]) {
     cb_args[0] = makeError(PQerrorMessage(conn->pq));
 }
 
-defAsync(connectDB, 2)
+defAsync(connectDB, 2);
 
 typedef struct {
   char* cmd;
@@ -130,7 +130,7 @@ static void done_execParams(napi_env env, Conn* conn, napi_value cb_args[]) {
   freeExecArgs(env, conn);
 }
 
-defAsync(execParams, 3)
+defAsync(execParams, 3);
 
 static napi_value init_prepare(napi_env env, napi_callback_info info,
                         Conn* conn, size_t argc, napi_value args[]) {
@@ -151,7 +151,7 @@ static void async_prepare(Conn* conn) {
 
 #define done_prepare done_execParams
 
-defAsync(prepare, 3)
+defAsync(prepare, 3);
 
 static napi_value init_execPrepared(napi_env env, napi_callback_info info,
                              Conn* conn, size_t argc, napi_value args[]) {
@@ -172,9 +172,10 @@ static void async_execPrepared(Conn* conn) {
   lockConn();
 }
 #define done_execPrepared done_execParams
-defAsync(execPrepared, 3)
+defAsync(execPrepared, 3);
 
 #include "copy-from-stream.h"
+#include "copy-to-stream.h"
 
 static napi_value escapeLiteral(napi_env env, napi_callback_info info) {
   getConn();
@@ -199,32 +200,19 @@ static napi_value resultErrorField(napi_env env, napi_callback_info info) {
     return getNull();
 }
 
-static char* cancel(Conn* conn) {
-  conn->copy_inprogress = false;
-  PGcancel* handle = PQgetCancel(conn->pq);
-  if (handle) {
-    char* errbuf = malloc(256);
-    const int success = PQcancel(handle, errbuf, 256);
-    PQfreeCancel(handle);
-
-    if (success || *errbuf == '\0') {
-      free(errbuf);
-      return NULL;
-    }
-    return errbuf;
-  }
-  return NULL;
-}
-
 static napi_value finish(napi_env env, napi_callback_info info) {
   uv_mutex_lock(&waitingQueue.lock);
   getConn();
   lockConn();
   dm(conn, finish);
-  if (conn->state == PGLIBPQ_STATE_BUSY || conn->copy_inprogress) {
+  if (conn->copy_inprogress == 2) {
+    unlockConn();
+    copyOutCleanup(env, conn);
+    lockConn();
+  }
+  if (conn->state == PGLIBPQ_STATE_BUSY || conn->copy_inprogress == 1) {
     conn->state = PGLIBPQ_STATE_ABORT;
-    char* errMsg = cancel(conn);
-    if (errMsg) free(errMsg);
+    cancel(conn);
     unlockConn();
   } else {
     ASSERT_STATE(conn, READY);
@@ -265,6 +253,8 @@ static napi_value Init(napi_env env, napi_value exports) {
     defFunc(copyFromStream),
     defFunc(putCopyData),
     defFunc(putCopyEnd),
+    defFunc(copyToStream),
+    defFunc(getCopyData),
     defFunc(resultErrorField),
     defFunc(escapeLiteral),
   };

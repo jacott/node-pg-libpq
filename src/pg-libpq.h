@@ -15,12 +15,11 @@ typedef void (*conn_async_execute)(Conn* conn);
 
 typedef void (*conn_async_complete)(napi_env env,
                                     Conn* conn, napi_value cb_args[]);
-
 struct Conn {
   PGconn* pq;
   int state;
   PGresult* result;
-  bool copy_inprogress;
+  char copy_inprogress;
   void* request;
   uv_thread_t thread;
   uv_mutex_t qlock;
@@ -153,6 +152,16 @@ static void freeCallbackRef(napi_env env, Conn* conn) {
   }
 }
 
+static void cancel(Conn* conn) {
+  conn->copy_inprogress = 0;
+  PGcancel* handle = PQgetCancel(conn->pq);
+  if (handle) {
+    char errbuf[1];
+    PQcancel(handle, errbuf, 1);
+    PQfreeCancel(handle);
+  }
+}
+
 static void cleanup(napi_env env, Conn* conn) {
   lockConn();
   if (conn->state == PGLIBPQ_STATE_CLOSED) return;
@@ -208,6 +217,11 @@ static napi_value convertResult(napi_env env, Conn* conn) {
     return result;
   }
   case PGRES_COPY_IN: {
+    conn->copy_inprogress = 1;
+    return result;
+  }
+  case PGRES_COPY_OUT: {
+    conn->copy_inprogress = 2;
     return result;
   }
   default: {
@@ -283,6 +297,7 @@ void async_complete(napi_env env, napi_status status, void* data) {
 
   if (! err) clearResult(conn);
 
+
   if (conn->request != NULL) {
     free(conn->request);
     conn->request = NULL;
@@ -299,7 +314,7 @@ void async_complete(napi_env env, napi_status status, void* data) {
     conn->state = PGLIBPQ_STATE_READY;
     unlockConn();
   }
-  assertok(napi_call_function(env, getGlobal(), callback, 2, cb_args, &result));
+  callFunction(getGlobal(), callback, 2, cb_args);
 }
 
 static void runCallbacks(napi_env env, napi_value js_callback, void* context, void* data) {

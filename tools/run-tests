@@ -4,7 +4,6 @@ cd $(dirname "$0")/..
 
 echo "test: Entering directory '$(pwd)'"
 
-rm -f core
 ulimit -c unlimited || echo "no core dumping :("
 if [ ! -e "build/Makefile" ];then
     node-gyp configure
@@ -23,4 +22,5 @@ export TZ=UTC
 cd test
 echo "test: Entering directory '$(pwd)'"
 
+rm -f core
 exec ../node_modules/.bin/mocha -C -R dot .

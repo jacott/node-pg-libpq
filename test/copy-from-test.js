@@ -2,7 +2,7 @@ const PG = require('../');
 const assert = require('assert');
 const fs = require('fs');
 
-describe('copy streaming', ()=>{
+describe('copy from streaming', ()=>{
   let pg;
   beforeEach(done =>{
     pg = new PG(err =>{
@@ -13,7 +13,7 @@ describe('copy streaming', ()=>{
   });
 
   afterEach(()=>{
-    pg && pg.finish();
+    pg.finish();
     pg = null;
   });
 
@@ -75,7 +75,7 @@ describe('copy streaming', ()=>{
   });
 
   it("should copy from buffer", done =>{
-    const fromFilename = __filename.replace(/\.js$/, '-from-data.csv');
+    const fromFilename = __filename.replace(/\.js$/, '-data.csv');
     const fromStream = fs.createReadStream(fromFilename);
     const dbStream = pg.copyFromStream('COPY node_pg_test FROM STDIN WITH (FORMAT csv) ', err =>{
       assert.ifError(err);

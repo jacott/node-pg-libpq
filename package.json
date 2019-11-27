@@ -1,7 +1,7 @@
 {
   "name": "pg-libpq",
   "description": "Native interface to PostgreSQL via libpq and libuv threads",
-  "version": "3.0.3",
+  "version": "3.1.0",
   "author": "Geoff Jacobsen <geoffjacobsen@gmail.com>",
   "license": "MIT",
   "main": "lib/pg-libpq",
@@ -10,7 +10,9 @@
     "url": "git://github.com/jacott/node-pg-libpq.git"
   },
   "gypfile": true,
-  "dependencies": {},
+  "dependencies": {
+    "wtfnode": "^0.8.0"
+  },
   "scripts": {
     "test": "tools/run-tests"
   },

@@ -180,13 +180,35 @@ There is no promise version of this command.
 Example:
 
 ```js
-const dbStream = client.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT csv) ',
+const dbStream = client.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT CSV) ',
     err =>{console.log("finished", err)});
 
 dbStream.write('123,"name","address"\n');
 dbStream.end();
-
 ```
+
+### `stream = client.copyToStream(command)`
+
+Copies data to a Readable stream from the database using the `COPY table TO STDOUT` statement.
+
+Example:
+
+```js
+const dbStream = client.copyToStream('COPY mytable TO STDOUT WITH (FORMAT CSV, HEADER)');
+
+dbStream.on('error', err => {
+  console.error(err);
+});
+
+dbStream.on('readable', () => {
+  let chunk;
+  while (null !== (chunk = sbStream.read())) {
+    console.log(`Received ${chunk.length} bytes of data.`);
+  }
+});
+```
+
+
 ### Utility methods
 
 #### `textValue = PG.sqlArray(jsArray)`
@@ -219,7 +241,6 @@ Example:
 
 * `PQdescribePrepared`
 * `PQdescribePortal`
-* `PQgetCopyData`
 * Retrieving Query Results Row-By-Row. Use cursors instead.
 * Asynchronous Notification -- LISTEN, UNLISTEN, NOTIFY
 

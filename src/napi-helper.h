@@ -6,10 +6,9 @@
 
 #define dm(ptr, msg) // printf("%s:%d: %s '%p'\n", __FILE__, __LINE__, #msg, ptr)
 
-#define LOG(s, ...) fprintf(stderr, "%s:%d: DEBUG " s, __FILE__, __LINE__, ## __VA_ARGS__)
-// #define LOG(...) fprintf(stderr, __VA_ARGS__)
+#define LOG(s, ...) fprintf(stderr, "%s:%d: DEBUG " s "\n", __FILE__, __LINE__, ## __VA_ARGS__)
 
-//#define DEBUG 1
+#define DEBUG 1
 #ifdef DEBUG
 static int _debugok(napi_env env, napi_status status) {
   if (status == napi_ok)
@@ -107,6 +106,13 @@ static int32_t _getInt32(napi_env env, napi_value value) {
 }
 #define getInt32(value) _getInt32(env, value)
 
+static bool _getBool(napi_env env, napi_value value) {
+  bool result;
+  assertok(napi_get_value_bool(env, value, &result));
+  return result;
+}
+#define getBool(value) _getBool(env, value)
+
 static napi_value _makeError(napi_env env, char* msg) {
   napi_value result;
 
@@ -184,3 +190,25 @@ static napi_value _getNull(napi_env env) {
   return ans;
 }
 #define getNull() _getNull(env)
+
+
+napi_value _callFunction(napi_env env, napi_value recv, napi_value func,
+                         size_t argc, const napi_value* argv) {
+  napi_value ans;
+
+  assertok(napi_call_function(env, recv, func, argc, argv, &ans));
+
+  return ans;
+}
+
+#define callFunction(recv, func, argc, argv) _callFunction(env, recv, func, argc, argv)
+
+napi_value _getProp(napi_env env, napi_value obj, char *prop) {
+  napi_value ans;
+
+  assertok(napi_get_named_property(env, obj, prop, &ans));
+
+  return ans;
+}
+
+#define getProp(obj, prop) _getProp(env, obj, prop)
