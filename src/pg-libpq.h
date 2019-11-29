@@ -22,7 +22,7 @@ struct Conn {
   char copy_inprogress;
   void* request;
   uv_thread_t thread;
-  uv_mutex_t qlock;
+  uv_sem_t sem;
   napi_ref wrapper_;
   napi_ref callback_ref;
   conn_async_execute execute;
@@ -171,8 +171,8 @@ static void cleanup(napi_env env, Conn* conn) {
   freeCallbackRef(env, conn);
   clearResult(conn);
   if (conn->pq != NULL) {
-    dm(conn, unlock);
-    uv_mutex_unlock(&conn->qlock);
+    dm(conn, post);
+    uv_sem_post(&conn->sem);
     unlockConn();
     uv_thread_join(&conn->thread);
     unref_threadsafe_func(env);
@@ -180,9 +180,8 @@ static void cleanup(napi_env env, Conn* conn) {
     PQfinish(conn->pq);
     conn->pq = NULL;
     dm(conn, unlock);
-    uv_mutex_unlock(&conn->qlock);
     dm(conn, destroy);
-    uv_mutex_destroy(&conn->qlock);
+    uv_sem_destroy(&conn->sem);
   }
 }
 
@@ -261,11 +260,14 @@ static napi_value convertResult(napi_env env, Conn* conn) {
 
 
 static void async_execute(void* data) {
+  lockConn();
+
   Conn* conn = data;
+  uv_sem_t* sem = &conn->sem;
   while(true) {
-    dm(conn, lock);
-    uv_mutex_lock(&conn->qlock);
-    dm(conn, **);
+    unlockConn();
+    dm(conn, wait);
+    uv_sem_wait(sem);
     lockConn();
     if (conn->state != PGLIBPQ_STATE_BUSY) {
       unlockConn();
@@ -277,8 +279,6 @@ static void async_execute(void* data) {
       napi_call_threadsafe_function(threadsafe_func, NULL, napi_tsfn_nonblocking);
     queueAddConn(&waitingQueue, conn);
     uv_mutex_unlock(&waitingQueue.lock);
-
-    unlockConn();
   }
 }
 
@@ -326,13 +326,13 @@ static void runCallbacks(napi_env env, napi_value js_callback, void* context, vo
 
 static void queueJob(napi_env env, Conn* conn) {
   if (conn->pq == NULL) {
-    uv_mutex_init(&conn->qlock);
     dm(conn, init);
+    uv_sem_init(&conn->sem, 1);
     ref_threadsafe_func(env);
     uv_thread_create(&conn->thread, async_execute, conn);
   } else {
-    dm(conn, unlock);
-    uv_mutex_unlock(&conn->qlock);
+    dm(conn, post);
+    uv_sem_post(&conn->sem);
   }
 }
 
