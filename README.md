@@ -181,13 +181,13 @@ Example:
 
 ```js
 const dbStream = client.copyFromStream('COPY mytable FROM STDIN WITH (FORMAT CSV) ',
-    err =>{console.log("finished", err)});
+    err => {console.log("finished", err)});
 
 dbStream.write('123,"name","address"\n');
 dbStream.end();
 ```
 
-### `stream = client.copyToStream(command)`
+#### `stream = client.copyToStream(command)`
 
 Copies data to a Readable stream from the database using the `COPY table TO STDOUT` statement.
 
@@ -199,6 +199,10 @@ const dbStream = client.copyToStream('COPY mytable TO STDOUT WITH (FORMAT CSV, H
 dbStream.on('error', err => {
   console.error(err);
 });
+
+dbStream.on('end', () => {
+  console.log("copy finished"); // will now execute next query
+})
 
 dbStream.on('readable', () => {
   let chunk;
