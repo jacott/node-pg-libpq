@@ -1,7 +1,7 @@
 {
   "name": "pg-libpq",
   "description": "Native interface to PostgreSQL via libpq and libuv threads",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "author": "Geoff Jacobsen <geoffjacobsen@gmail.com>",
   "license": "MIT",
   "main": "lib/pg-libpq",
@@ -18,7 +18,7 @@
     "node": ">=12.3"
   },
   "devDependencies": {
-    "mocha": "^8.1.3"
+    "mocha": "^8.3.2"
   },
   "keywords": [
     "sql",
